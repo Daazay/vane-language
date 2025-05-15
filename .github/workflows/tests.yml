@@ -1,0 +1,49 @@
+name: CI Tests
+
+on:
+  push:
+    branches: [dev]
+  pull_request:
+    branches: [dev]
+
+jobs:
+  build-and-test:
+    name: "Compiler: ${{ matrix.compiler }} / Config: ${{ matrix.config }} / Platform: ${{ matrix.platform }}"
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        compiler: [gcc, clang]
+        config:   [debug, release]
+        platform: [x64]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ${{ matrix.compiler }}
+
+      - name: Change permissions
+        run: |
+          sudo chmod +x ./scripts/generate.sh
+          sudo chmod +x ./third-party/premake/premake5
+
+      - name: Generate makefiles
+        run: |
+          ./scripts/generate.sh ${{ matrix.compiler }}
+
+      - name: Build projects
+        run: |
+          make config=${{ matrix.config }}_${{ matrix.platform }} tests -j4
+
+      - name: Run tests
+        run: |
+          EXECUTABLE="./build/bin/${{ matrix.config }}-${{ matrix.platform }}/tests/tests"
+          if [ -f "$EXECUTABLE" ]; then
+            $EXECUTABLE
+          else
+            echo "Tests executable ("$EXECUTABLE") not found!"
+            exit 1
+          fi
