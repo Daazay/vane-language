@@ -1,0 +1,11 @@
+#
+build
+
+# Visual Studio relative
+.vs
+*.sln
+*.vcxproj*
+
+# Make relative
+Makefile
+*.make
