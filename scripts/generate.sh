@@ -2,14 +2,6 @@
 
 pushd "$(dirname "$0")/.." > /dev/null
 
-if [ -z "$1" ]; then
-    echo "Usage: ./scripts/generate.sh [COMPILER]"
-    echo "Available compilers:"
-    echo "  gcc (default)"
-    echo "  clang"
-    exit 1
-fi
-
 COMPILER=$1
 ACTION="gmake"
 PREMAKE="./third-party/premake/premake5"

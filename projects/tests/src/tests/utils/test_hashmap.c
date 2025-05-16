@@ -44,11 +44,10 @@ typedef struct {
 } HashmapPtrPair;
 
 UTEST_F_SETUP(TestHashmapBasic) {
-    utest_fixture->map = hashmap_create(0, (HashmapKeySpecs) {
-        .common = COLLECTION_ITEM_SPECS(u32, NULL),
-        .hash_fn = &get_u32_hash,
-        .eq_fn = &u32_eq,
-    }, COLLECTION_ITEM_SPECS(i64, NULL));
+    utest_fixture->map = hashmap_create(0,
+        HASHMAP_KEY_SPECS(u32, &get_u32_hash, &u32_eq, NULL),
+        HASHMAP_VALUE_SPECS(i64, NULL)
+    );
 }
 
 UTEST_F_TEARDOWN(TestHashmapBasic) {
@@ -56,11 +55,10 @@ UTEST_F_TEARDOWN(TestHashmapBasic) {
 }
 
 UTEST_F_SETUP(TestHashmapStruct) {
-    utest_fixture->map = hashmap_create(0, (HashmapKeySpecs) {
-        .common = COLLECTION_ITEM_SPECS(TestObject, NULL),
-        .hash_fn = &get_test_object_hash,
-        .eq_fn = &test_object_eq,
-    }, COLLECTION_ITEM_SPECS(TestObject, NULL));
+    utest_fixture->map = hashmap_create(0,
+        HASHMAP_KEY_SPECS(TestObject, &get_test_object_hash, &test_object_eq, NULL),
+        HASHMAP_VALUE_SPECS(TestObject, NULL)
+    );
 }
 
 UTEST_F_TEARDOWN(TestHashmapStruct) {
@@ -68,11 +66,10 @@ UTEST_F_TEARDOWN(TestHashmapStruct) {
 }
 
 UTEST_F_SETUP(TestHashmapPtr) {
-    utest_fixture->map = hashmap_create(0, (HashmapKeySpecs) {
-        .common = COLLECTION_ITEM_SPECS(TestObject*, &test_object_destroy),
-        .hash_fn = &get_test_object_hash,
-        .eq_fn = &test_object_eq,
-    }, COLLECTION_ITEM_SPECS(TestObject*, &test_object_destroy));
+    utest_fixture->map = hashmap_create(0,
+        HASHMAP_KEY_SPECS(TestObject*, &get_test_object_hash, &test_object_eq, &test_object_destroy),
+        HASHMAP_VALUE_SPECS(TestObject*, &test_object_destroy)
+    );
 }
 
 UTEST_F_TEARDOWN(TestHashmapPtr) {
@@ -216,7 +213,7 @@ UTEST_F(TestHashmapStruct, contains) {
     const TestObject existing_key = OBJECT(34, 115.0f, 3);
     ASSERT_TRUE(hashmap_contains(&utest_fixture->map, &existing_key));
 
-    const TestObject not_existing_key = { 134, -645.251f };
+    const TestObject not_existing_key = OBJECT(134, -645.251f, 15);
     ASSERT_FALSE(hashmap_contains(&utest_fixture->map, &not_existing_key));
 }
 
@@ -239,7 +236,7 @@ UTEST_F(TestHashmapPtr, contains) {
     TestObject* existing_key = &existing_obj;
     ASSERT_TRUE(hashmap_contains(&utest_fixture->map, &existing_key));
 
-    TestObject not_existing_obj = { 134, -645.251f };
+    TestObject not_existing_obj = OBJECT(134, -645.251f, 15);
     TestObject* not_existing_key = &not_existing_obj;
     ASSERT_FALSE(hashmap_contains(&utest_fixture->map, &not_existing_key));
 }

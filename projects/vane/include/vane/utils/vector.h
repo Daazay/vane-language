@@ -3,6 +3,8 @@
 #include "vane/utils/defines.h"
 #include "vane/utils/collection_item_specs.h"
 
+#define VECTOR_ITEM_SPECS(TYPE, DESTROY_FN) COLLECTION_ITEM_SPECS(TYPE, DESTROY_FN)
+
 typedef CollectionItemSpecs VectorItemSpecs;
 typedef struct Vector Vector;
 

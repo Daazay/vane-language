@@ -9,7 +9,7 @@ struct TestVectorBasic {
 };
 
 UTEST_F_SETUP(TestVectorBasic) {
-    utest_fixture->vec = vector_create(0, COLLECTION_ITEM_SPECS(u32, NULL));
+    utest_fixture->vec = vector_create(0, VECTOR_ITEM_SPECS(u32, NULL));
 }
 
 UTEST_F_TEARDOWN(TestVectorBasic) {
@@ -21,7 +21,7 @@ struct TestVectorStruct {
 };
 
 UTEST_F_SETUP(TestVectorStruct) {
-    utest_fixture->vec = vector_create(0, COLLECTION_ITEM_SPECS(TestObject, NULL));
+    utest_fixture->vec = vector_create(0, VECTOR_ITEM_SPECS(TestObject, NULL));
 }
 
 UTEST_F_TEARDOWN(TestVectorStruct) {
@@ -33,7 +33,7 @@ struct TestVectorPtr {
 };
 
 UTEST_F_SETUP(TestVectorPtr) {
-    utest_fixture->vec = vector_create(0, COLLECTION_ITEM_SPECS(TestObject*, &test_object_destroy));
+    utest_fixture->vec = vector_create(0, VECTOR_ITEM_SPECS(TestObject*, &test_object_destroy));
 }
 UTEST_F_TEARDOWN(TestVectorPtr) {
     vector_destroy(&utest_fixture->vec);

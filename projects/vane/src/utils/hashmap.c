@@ -17,23 +17,23 @@
 #define GET_ENTRY_KEY_P(ENTRY) ((byte*)ENTRY + sizeof(u32))
 #define GET_ENTRY_VALUE_P(MAP, ENTRY) (GET_ENTRY_KEY_P(ENTRY) + MAP->key_specs.common.size)
 
-inline u64 get_entry_size(const Hashmap* map) {
+static inline u64 get_entry_size(const Hashmap* map) {
     return sizeof(u32) + map->key_specs.common.size + map->value_specs.size;
 }
 
-inline u32 get_entry_hash(const void* entry) {
+static inline u32 get_entry_hash(const void* entry) {
     return *(const u32*)entry;
 }
 
-inline void* get_entry_key(void* entry) {
+static inline void* get_entry_key(void* entry) {
     return (byte*)entry + sizeof(u32);
 }
 
-inline void* get_entry_value(const Hashmap* map, void* entry) {
+static inline void* get_entry_value(const Hashmap* map, void* entry) {
     return (byte*)entry + sizeof(u32) + map->key_specs.common.size;
 }
 
-inline void hashmap_bucket_init(const Hashmap* map, HashmapBucket* bucket) {
+static inline void hashmap_bucket_init(const Hashmap* map, HashmapBucket* bucket) {
     *bucket = vector_create(HASHMAP_INIT_BUCKET_SIZE, (VectorItemSpecs) {
         .size = (u32)get_entry_size(map),
         .is_ptr = true,

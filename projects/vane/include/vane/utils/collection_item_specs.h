@@ -14,9 +14,7 @@ struct CollectionItemSpecs {
 #define COLLECTION_ITEM_SPECS(TYPE, DESTROY_FN) ((CollectionItemSpecs) { \
     .size       = sizeof(TYPE), \
     .is_ptr     = IS_TYPE_PTR(TYPE), \
-    .destroy_fn = DESTROY_FN, \
+    .destroy_fn = (item_destroy_fn)DESTROY_FN, \
 })
 
-#define COLLECTION_ITEM_CAST(ITEM_SPECS, ITEM) ((ITEM_SPECS.is_ptr) \
-    ? *(void**)ITEM \
-    : ITEM)
+#define COLLECTION_ITEM_CAST(ITEM_SPECS, ITEM) ((ITEM_SPECS.is_ptr) ? *(void**)ITEM : ITEM)

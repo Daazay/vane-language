@@ -3,6 +3,14 @@
 #include "vane/utils/defines.h"
 #include "vane/utils/collection_item_specs.h"
 
+#define HASHMAP_KEY_SPECS(TYPE, HASH_FN, EQ_FN, DESTROY_FN) ((HashmapKeySpecs) { \
+    .common = COLLECTION_ITEM_SPECS(TYPE, DESTROY_FN), \
+    .hash_fn = (hashmap_key_hash_fn)HASH_FN, \
+    .eq_fn = (hashmap_key_eq_fn)EQ_FN \
+})
+
+#define HASHMAP_VALUE_SPECS(TYPE, DESTROY_FN) COLLECTION_ITEM_SPECS(TYPE, DESTROY_FN)
+
 typedef struct HashmapKeySpecs HashmapKeySpecs;
 typedef u32(*hashmap_key_hash_fn)(const void* key);
 typedef bool(*hashmap_key_eq_fn)(const void* key1, const void* key2);
