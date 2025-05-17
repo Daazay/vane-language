@@ -93,6 +93,7 @@ UTEST_F(TestFileUtils, iterate_directory_empty_dir) {
     u64 count = 0;
     IOStatus status = iterate_directory(&utest_fixture->path, (iterate_directory_fn)&iterate_count, &count);
 
+    ASSERT_EQ(status, IO_STATUS_OK);
     ASSERT_EQ(count, 0);
 }
 
