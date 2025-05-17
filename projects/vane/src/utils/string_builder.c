@@ -211,7 +211,7 @@ void sb_append_right_str(StringBuilder* sb, const String* s) {
     }
 
     if (s->len == 1) {
-        sb_append_left_c(sb, s->text[0]);
+        sb_append_right_c(sb, s->text[0]);
         return;
     }
     sb_append_cstr_impl(sb, s->text, s->len, false);
