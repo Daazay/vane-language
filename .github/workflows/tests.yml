@@ -8,11 +8,10 @@ on:
 
 jobs:
   build-and-test:
-    name: "Compiler: ${{ matrix.compiler }} / Config: ${{ matrix.config }} / Platform: ${{ matrix.platform }}"
+    name: "${{ matrix.config }} - ${{ matrix.platform }}"
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        compiler: [gcc, clang]
         config:   [debug, release]
         platform: [x64]
 
@@ -23,7 +22,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y ${{ matrix.compiler }}
+          sudo apt-get install -y gcc
 
       - name: Change permissions
         run: |
@@ -32,7 +31,7 @@ jobs:
 
       - name: Generate makefiles
         run: |
-          ./scripts/generate.sh ${{ matrix.compiler }}
+          ./scripts/generate.sh
 
       - name: Build projects
         run: |
