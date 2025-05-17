@@ -13,6 +13,7 @@
 
 #include "vane/utils/vector.h"
 #include "vane/utils/string_builder.h"
+#include "vane/utils/string_utils.h"
 
 String get_absolute_path(const String* path) {
     assert(path != NULL);
@@ -33,7 +34,7 @@ String get_absolute_path(const String* path) {
     char* text = malloc(len + 1);
     assert(text != NULL);
 
-    GetFullPathNameA(path->text, len, text, NULL);
+    GetFullPathNameA(path->text, (DWORD)len, text, NULL);
 
     return (String) { .text = text, .len = len };
 #else
