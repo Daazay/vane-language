@@ -32,10 +32,54 @@ bool is_token_kind_a_punc(TokenKind kind) {
     }
 }
 
+bool is_token_kind_an_op(TokenKind kind) {
+    switch (kind) {
+#define TOKEN_OP(ID, NAME, VALUE, PREC) case TOKEN_##ID: return true;
+#include "vane/scanner/token_kind.def"
+    default:
+        return false;
+    }
+}
+
+bool is_token_kind_a_binop(TokenKind kind) {
+    switch (kind) {
+#define TOKEN_BINOP(ID, NAME, VALUE, PREC) case TOKEN_##ID: return true;
+#include "vane/scanner/token_kind.def"
+    default:
+        return false;
+    }
+}
+
+bool is_token_kind_a_prefix_unop(TokenKind kind) {
+    switch (kind) {
+    case TOKEN_PLUS:  return true;
+    case TOKEN_MINUS: return true;
+    case TOKEN_CARET: return true;
+    case TOKEN_AMP:   return true;
+#define TOKEN_UNOP(ID, NAME, VALUE, PREC) case TOKEN_##ID: return true;
+#include "vane/scanner/token_kind.def"
+    default:
+        return false;
+    }
+}
+
+bool is_token_kind_an_infix_unop(TokenKind kind) {
+    switch (kind) {
+    case TOKEN_PLUS:  return true;
+    case TOKEN_MINUS: return true;
+    case TOKEN_CARET: return true;
+    case TOKEN_AMP:   return true;
+#define TOKEN_UNOP(ID, NAME, VALUE, PREC) case TOKEN_##ID: return true;
+#include "vane/scanner/token_kind.def"
+    default:
+        return false;
+    }
+}
+
 bool is_token_kind_a_keyword(TokenKind kind) {
     switch (kind) {
-#define TOKEN_KEYWORD(KIND, NAME) case TOKEN_KEYWORD_##KIND: return true;
-#include "vane/scanner/token_kind.def"
+    case TOKEN_PLUS_PLUS:   return true;
+    case TOKEN_MINUS_MINUS: return true;
     default: return false;
     }
 }
@@ -61,5 +105,21 @@ bool is_token_kind_a_literal(TokenKind kind) {
 #define TOKEN_LITERAL(KIND, NAME) case TOKEN_LITERAL_##KIND: return true;
 #include "vane/scanner/token_kind.def"
     default: return false;
+    }
+}
+
+OpPrecedence get_op_precedence(TokenKind kind) {
+    switch (kind) {
+#define TOKEN_OP(ID, NAME, VAUE, PREC) case TOKEN_##ID: return OP_PREC_##PREC;
+#include "vane/scanner/token_kind.def"
+    default: return OP_PREC_NONE;
+    }
+}
+
+OpAssociativity get_op_associativity(OpPrecedence prec) {
+    switch (prec) {
+    case OP_PREC_ASSIGNMENT: return OP_ASSOC_RIGHT;
+    case OP_PREC_UNARY:      return OP_ASSOC_RIGHT;
+    default:                 return OP_ASSOC_LEFT;
     }
 }

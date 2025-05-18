@@ -50,4 +50,6 @@ typedef u8                 byte;
 
 #define IS_TYPE_PTR(TYPE) ((#TYPE)[sizeof(#TYPE) / sizeof(char) - 2] == '*')
 
+#define ARR(TYPE, ...) ((const TYPE[]){ __VA_ARGS__ })
+
 #define ARR_SIZE(ARR) (sizeof(ARR) / sizeof(ARR[0]))

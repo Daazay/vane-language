@@ -1,0 +1,215 @@
+#ifndef AST_NODE
+#define AST_NODE(KIND, NAME, ...)
+#endif
+
+#ifndef AST_NODE_MISC
+#define AST_NODE_MISC(KIND, NAME, ...) AST_NODE(KIND, NAME, __VA_ARGS__)
+#endif
+
+#ifndef AST_NODE_TYPE
+#define AST_NODE_TYPE(KIND, NAME, ...) AST_NODE(TYPE_##KIND, "type:"NAME, __VA_ARGS__)
+#endif
+
+#ifndef AST_NODE_STMT
+#define AST_NODE_STMT(KIND, NAME, ...) AST_NODE(STMT_##KIND, "stmt:"NAME, __VA_ARGS__)
+#endif
+
+#ifndef AST_NODE_EXPR
+#define AST_NODE_EXPR(KIND, NAME, ...) AST_NODE(EXPR_##KIND, "expr:"NAME, __VA_ARGS__)
+#endif
+
+#ifndef AST_NODE_LITERAL
+#define AST_NODE_LITERAL(KIND, NAME, ...) AST_NODE(LITERAL_##KIND, "literal:"NAME, __VA_ARGS__)
+#endif
+
+//----------------------------------------------------------//
+//                    START OF DEFINES                      //
+//----------------------------------------------------------//
+
+AST_NODE_MISC(UNKNOWN,                  "unknown")
+
+AST_NODE_MISC(ERROR,                   "error",            struct { \
+    String msg; \
+    ASTNode* next; \
+} error; )
+
+AST_NODE_MISC(IDENTIFIER,               "identifier",       struct { \
+    String value; \
+} identifier; )
+
+AST_NODE_MISC(PACKAGE_DECL,             "package:decl",     struct { \
+    ASTNode* id; \
+} package_decl; )
+
+AST_NODE_MISC(IMPORT_DECL,              "import:decl",      struct { \
+    ASTNode* path; \
+    ASTNode* alias; \
+} import_decl; )
+
+AST_NODE_TYPE(VOID,                     "void")
+AST_NODE_TYPE(ANY,                      "any")
+AST_NODE_TYPE(U8,                       "u8")
+AST_NODE_TYPE(I8,                       "i8")
+AST_NODE_TYPE(U16,                      "u16")
+AST_NODE_TYPE(I16,                      "i16")
+AST_NODE_TYPE(U32,                      "u32")
+AST_NODE_TYPE(I32,                      "i32")
+AST_NODE_TYPE(U64,                      "u64")
+AST_NODE_TYPE(I64,                      "i64")
+
+AST_NODE_TYPE(CUSTOM,                   "custom",           struct { \
+    String value; \
+} type_custom; )
+
+AST_NODE_TYPE(PTR,                      "ptr",              struct { \
+    ASTNode* type; \
+} type_ptr; )
+
+AST_NODE_TYPE(ARR,                      "arr",              struct { \
+    ASTNode* type; \
+    ASTNode* expr; \
+} type_arr; )
+
+AST_NODE_MISC(FUNC_PARAM,               "func_param",       struct { \
+    ASTNode* id; \
+    ASTNode* type; \
+} func_param; )
+
+AST_NODE_MISC(FUNC_SIGN,                "func_sign",        struct { \
+    ASTNode* id; \
+    Vector params; \
+    ASTNode* type; \
+} func_sign; )
+
+AST_NODE_MISC(FUNC_DECL,                "func_decl",        struct { \
+    ASTNode* sign; \
+    Vector body; \
+} func_decl; )
+
+AST_NODE_STMT(EMPTY,                    "empty")
+
+AST_NODE_STMT(BLOCK,                    "block",            struct { \
+    Vector stmts; \
+} stmt_block; )
+
+AST_NODE_MISC(CONST_ITEM,               "const_item",       struct { \
+    ASTNode* id; \
+    ASTNode* type; \
+    ASTNode* expr; \
+} const_item; )
+
+AST_NODE_STMT(CONST_DECL,               "const_decl",       struct { \
+    Vector items; \
+} stmt_const_decl; )
+
+AST_NODE_MISC(VAR_ITEM,                 "var_item",         struct { \
+    ASTNode* id; \
+    ASTNode* type; \
+    ASTNode* expr; \
+} var_item; )
+
+AST_NODE_STMT(VAR_DECL,                 "var_decl",         struct { \
+    Vector items; \
+} stmt_var_decl; )
+
+AST_NODE_MISC(BRANCH,                   "branch",           struct { \
+    ASTNode* expr; \
+    Vector block; \
+} branch; )
+
+AST_NODE_STMT(CONDITION,                "condition",        struct { \
+    Vector branches; \
+} stmt_condition; )
+
+AST_NODE_STMT(WHILE,                    "while",            struct { \
+    ASTNode* expr; \
+    Vector block; \
+} stmt_while; )
+
+AST_NODE_STMT(DO,                       "do",               struct { \
+    ASTNode* expr; \
+    Vector block; \
+} stmt_do; )
+
+AST_NODE_STMT(BREAK,                    "break")
+
+AST_NODE_STMT(CONTINUE,                 "continue")
+
+AST_NODE_STMT(DEFER,                    "defer",            struct { \
+    ASTNode* defer; \
+} stmt_defer; )
+
+AST_NODE_STMT(EXPR,                     "expr",             struct { \
+    ASTNode* expr; \
+} stmt_expr; )
+
+AST_NODE_STMT(RETURN,                   "return",           struct { \
+    ASTNode* expr; \
+} stmt_return; )
+
+AST_NODE_EXPR(BINARY,                   "binary",           struct { \
+    TokenKind op; \
+    ASTNode* lhs; \
+    ASTNode* rhs; \
+} expr_binary; )
+
+AST_NODE_EXPR(UNARY,                    "unary",            struct { \
+    TokenKind op; \
+    ASTNode* lhs; \
+    ASTNode* rhs; \
+} expr_unary; )
+
+AST_NODE_EXPR(BRACES,                   "braces",           struct { \
+    ASTNode* expr; \
+} expr_braces; )
+
+AST_NODE_EXPR(CALL,                     "call",             struct { \
+    ASTNode* callee; \
+    Vector args; \
+} expr_call; )
+
+AST_NODE_EXPR(INDEX,                    "index",            struct { \
+    ASTNode* callee; \
+    Vector args; \
+} expr_index; )
+
+AST_NODE_EXPR(CAST,                     "cast",             struct { \
+    ASTNode* type; \
+    ASTNode* expr; \
+} expr_cast; )
+
+AST_NODE_EXPR(PLACE,                    "place",            struct { \
+    String value; \
+} expr_place; )
+
+AST_NODE_EXPR(MEMBER,                   "member",           struct { \
+    ASTNode* object; \
+    ASTNode* member; \
+} expr_member; )
+
+AST_NODE_EXPR(INIT_LIST,                "init_list",        struct { \
+    Vector items; \
+} expr_init_list; )
+
+AST_NODE_EXPR(NIL,                      "nil")
+
+AST_NODE_LITERAL(STRING,                "string",           struct { \
+    String value; \
+} literal; )
+
+AST_NODE_LITERAL(CHAR,                  "char")
+AST_NODE_LITERAL(DEC,                   "dec")
+AST_NODE_LITERAL(HEX,                   "hex")
+AST_NODE_LITERAL(BIN,                   "bin")
+AST_NODE_LITERAL(BOOL,                  "bool")
+
+//----------------------------------------------------------//
+//                      END OF DEFINES                      //
+//----------------------------------------------------------//
+
+#undef AST_NODE
+#undef AST_NODE_MISC
+#undef AST_NODE_TYPE
+#undef AST_NODE_STMT
+#undef AST_NODE_EXPR
+#undef AST_NODE_LITERAL
