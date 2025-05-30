@@ -6,6 +6,8 @@
 
 #include "vane/scanner/token.h"
 
+#include "vane/diagnostic/report_collector.h"
+
 #define SCANNER_DEFAULT_LINE_POS   1
 #define SCANNER_DEFAULT_COLUMN_POS 1
 
@@ -15,9 +17,11 @@ struct Scanner {
     u64 pos;
 
     SourceLoc loc;
+
+    ReportCollector* rc;
 };
 
-Scanner scanner_create(const String* path, byte* data, u64 size);
+Scanner scanner_create(const String* path, byte* data, u64 size, ReportCollector* rc);
 
 void scanner_destroy(Scanner* scanner);
 

@@ -34,6 +34,28 @@ static inline void scanner_advance_char(Scanner* scanner) {
 
 #pragma endregion
 
+#pragma region DIAGNOSTIC
+
+#define REPORT_APPEND_TRACE(FORMAT, ...) do { \
+    if (scanner->rc != NULL) { \
+        String msg = string_from_fmt(FORMAT, ##__VA_ARGS__); \
+        report_collector_append_report_trace(scanner->rc, msg, scanner->loc); \
+    } \
+} while (false)
+
+#define REPORT(SEVERITY, FORMAT, ...) do { \
+    if (scanner->rc != NULL) { \
+        String msg = string_from_fmt(FORMAT, ##__VA_ARGS__); \
+        report_collector_append_report(scanner->rc, SEVERITY, msg, scanner->loc); \
+    } \
+} while (false)
+
+#define REPORT_INFO(FORMAT, ...)  REPORT(DIAG_SEVERITY_INFO, FORMAT, ##__VA_ARGS__)
+#define REPORT_WARN(FORMAT, ...)  REPORT(DIAG_SEVERITY_WARN, FORMAT, ##__VA_ARGS__)
+#define REPORT_ERROR(FORMAT, ...) REPORT(DIAG_SEVERITY_ERROR, FORMAT, ##__VA_ARGS__)
+
+#pragma endregion
+
 #pragma region SCANNER_PARSE
 
 static inline void scanner_skip_whitespaces(Scanner* scanner) {
@@ -80,6 +102,10 @@ static inline bool scanner_skip_comment_block(Scanner* scanner) {
         prev_ch = ch;
     }
 
+    if (!good) {
+        REPORT_APPEND_TRACE("unterminated comment block");
+    }
+
     return good;
 }
 
@@ -109,6 +135,7 @@ static inline Token scanner_parse_string_literal(Scanner* scanner) {
     }
 
     if (!good) {
+        REPORT_APPEND_TRACE("unterminated string literal");
         return token_create(TOKEN_INVALID, STRING_EMPTY, scanner->loc);
     }
 
@@ -139,18 +166,21 @@ static inline Token scanner_parse_char_literal(Scanner* scanner) {
     }
 
     if (!good) {
+        REPORT_APPEND_TRACE("unterminated char literal");
         return token_create(TOKEN_INVALID, STRING_EMPTY, scanner->loc);
     }
 
     const u64 lit_len = scanner->pos - prev_pos - 1;
 
     if (lit_len < 1) {
+        REPORT_APPEND_TRACE("char literal has no body");
         return token_create(TOKEN_INVALID, STRING_EMPTY, scanner->loc);
     }
 
     String value = string_substr(&scanner->content, prev_pos, lit_len);
 
     if (lit_len > 1) {
+        REPORT_APPEND_TRACE("char literal `%.*s` contains too many characters", (i32)value.len, value.text);
         return token_create(TOKEN_INVALID, value, scanner->loc);
     }
 
@@ -181,12 +211,14 @@ static inline Token scanner_parse_hex_literal(Scanner* scanner) {
     const u64 lit_len = scanner->pos - prev_pos;
 
     if (lit_len == 2) {
+        REPORT_APPEND_TRACE("hex literal has no body");
         return token_create(TOKEN_INVALID, STRING_EMPTY, scanner->loc);
     }
 
     String value = string_substr(&scanner->content, prev_pos, lit_len);
 
     if (!good || prev_ch == '_') {
+        REPORT_APPEND_TRACE("invalid hex literal `%.*s`", (i32)value.len, value.text);
         return token_create(TOKEN_INVALID, value, scanner->loc);
     }
 
@@ -217,12 +249,14 @@ static inline Token scanner_parse_bin_literal(Scanner* scanner) {
     const u64 lit_len = scanner->pos - prev_pos;
 
     if (lit_len == 2) {
+        REPORT_APPEND_TRACE("bin literal has no body");
         return token_create(TOKEN_INVALID, STRING_EMPTY, scanner->loc);
     }
 
     String value = string_substr(&scanner->content, prev_pos, lit_len);
 
     if (!good || prev_ch == '_') {
+        REPORT_APPEND_TRACE("invalid bin literal `%.*s`", (i32)value.len, value.text);
         return token_create(TOKEN_INVALID, value, scanner->loc);
     }
 
@@ -270,6 +304,7 @@ static inline Token scanner_parse_number_literal(Scanner* scanner) {
     String value = string_substr(&scanner->content, prev_pos, scanner->pos - prev_pos);
 
     if (!good || prev_ch == '_') {
+        REPORT_APPEND_TRACE("invalid dec literal `%.*s`", (i32)value.len, value.text);
         return token_create(TOKEN_INVALID, value, scanner->loc);
     }
 
@@ -347,9 +382,7 @@ return token_create(KIND1, STRING_EMPTY, scanner->loc)
 
 #pragma endregion
 
-Scanner scanner_create(const String* path, byte* data, u64 size) {
-    assert(path != NULL);
-
+Scanner scanner_create(const String* path, byte* data, u64 size, ReportCollector* rc) {
     return (Scanner) {
         .content = (String){
             .text = (char*)data,
@@ -366,7 +399,8 @@ Scanner scanner_create(const String* path, byte* data, u64 size) {
                 .line = SCANNER_DEFAULT_LINE_POS,
                 .column = SCANNER_DEFAULT_COLUMN_POS,
             }
-        }
+        },
+        .rc = rc,
     };
 }
 
@@ -450,6 +484,7 @@ Token scanner_scan_next(Scanner* scanner) {
 
         String value = string_substr(&scanner->content, prev_pos, scanner->pos - prev_pos);
 
+        REPORT_APPEND_TRACE("unknown token `%.*s`", (i32)value.len, value.text);
         return token_create(TOKEN_UNKNOWN, value, scanner->loc);
     }
 }

@@ -3,13 +3,11 @@
 #include <vane/scanner/token_stream.h>
 
 struct TestTokenStream {
-    String path;
     String content;
     TokenStream ts;
 };
 
 UTEST_F_SETUP(TestTokenStream) {
-    utest_fixture->path = STRING_EMPTY;
     utest_fixture->content = STRING_EMPTY;
     utest_fixture->ts = (TokenStream){ 0 };
 }
@@ -23,7 +21,7 @@ UTEST_F_TEARDOWN(TestTokenStream) {
 
 UTEST_F(TestTokenStream, get_curr_empty_source) {
     utest_fixture->content = STRING_EMPTY;
-    utest_fixture->ts = ts_create(0, &utest_fixture->path, (byte*)utest_fixture->content.text, utest_fixture->content.len);
+    utest_fixture->ts = ts_create(0, NULL, (byte*)utest_fixture->content.text, utest_fixture->content.len, NULL);
 
     const Token* token = ts_get_curr(&utest_fixture->ts);
 
@@ -36,7 +34,7 @@ UTEST_F(TestTokenStream, get_curr_empty_source) {
 
 UTEST_F(TestTokenStream, get_curr) {
     utest_fixture->content = string_from_cstr("+");
-    utest_fixture->ts = ts_create(0, &utest_fixture->path, (byte*)utest_fixture->content.text, utest_fixture->content.len);
+    utest_fixture->ts = ts_create(0, NULL, (byte*)utest_fixture->content.text, utest_fixture->content.len, NULL);
 
     const Token* token = ts_get_curr(&utest_fixture->ts);
 
@@ -51,7 +49,7 @@ UTEST_F(TestTokenStream, get_curr) {
 
 UTEST_F(TestTokenStream, peek_next_empty_source) {
     utest_fixture->content = STRING_EMPTY;
-    utest_fixture->ts = ts_create(0, &utest_fixture->path, (byte*)utest_fixture->content.text, utest_fixture->content.len);
+    utest_fixture->ts = ts_create(0, NULL, (byte*)utest_fixture->content.text, utest_fixture->content.len, NULL);
 
     const Token* token = ts_peek_next(&utest_fixture->ts);
 
@@ -65,7 +63,7 @@ UTEST_F(TestTokenStream, peek_next_empty_source) {
 
 UTEST_F(TestTokenStream, peek_next) {
     utest_fixture->content = string_from_cstr("+");
-    utest_fixture->ts = ts_create(0, &utest_fixture->path, (byte*)utest_fixture->content.text, utest_fixture->content.len);
+    utest_fixture->ts = ts_create(0, NULL, (byte*)utest_fixture->content.text, utest_fixture->content.len, NULL);
 
     const Token* token = ts_peek_next(&utest_fixture->ts);
 
@@ -81,7 +79,7 @@ UTEST_F(TestTokenStream, peek_next) {
 
 UTEST_F(TestTokenStream, advance_empty_source) {
     utest_fixture->content = STRING_EMPTY;
-    utest_fixture->ts = ts_create(0, &utest_fixture->path, (byte*)utest_fixture->content.text, utest_fixture->content.len);
+    utest_fixture->ts = ts_create(0, NULL, (byte*)utest_fixture->content.text, utest_fixture->content.len, NULL);
 
     const Token* token = ts_advance(&utest_fixture->ts);
 
@@ -95,7 +93,7 @@ UTEST_F(TestTokenStream, advance_empty_source) {
 
 UTEST_F(TestTokenStream, advance_1) {
     utest_fixture->content = string_from_cstr("+");
-    utest_fixture->ts = ts_create(0, &utest_fixture->path, (byte*)utest_fixture->content.text, utest_fixture->content.len);
+    utest_fixture->ts = ts_create(0, NULL, (byte*)utest_fixture->content.text, utest_fixture->content.len, NULL);
 
     const Token* token = ts_advance(&utest_fixture->ts);
 
@@ -109,7 +107,7 @@ UTEST_F(TestTokenStream, advance_1) {
 
 UTEST_F(TestTokenStream, advance_2) {
     utest_fixture->content = string_from_cstr("+");
-    utest_fixture->ts = ts_create(0, &utest_fixture->path, (byte*)utest_fixture->content.text, utest_fixture->content.len);
+    utest_fixture->ts = ts_create(0, NULL, (byte*)utest_fixture->content.text, utest_fixture->content.len, NULL);
 
     const Token* token = ts_advance(&utest_fixture->ts);
 
@@ -134,7 +132,7 @@ UTEST_F(TestTokenStream, advance_2) {
 
 UTEST_F(TestTokenStream, move_forward_empty_source) {
     utest_fixture->content = STRING_EMPTY;
-    utest_fixture->ts = ts_create(0, &utest_fixture->path, (byte*)utest_fixture->content.text, utest_fixture->content.len);
+    utest_fixture->ts = ts_create(0, NULL, (byte*)utest_fixture->content.text, utest_fixture->content.len, NULL);
 
     ts_move_forward(&utest_fixture->ts);
 
@@ -145,7 +143,7 @@ UTEST_F(TestTokenStream, move_forward_empty_source) {
 
 UTEST_F(TestTokenStream, move_forward_1) {
     utest_fixture->content = string_from_cstr("+");
-    utest_fixture->ts = ts_create(0, &utest_fixture->path, (byte*)utest_fixture->content.text, utest_fixture->content.len);
+    utest_fixture->ts = ts_create(0, NULL, (byte*)utest_fixture->content.text, utest_fixture->content.len, NULL);
 
     ts_move_forward(&utest_fixture->ts);
 
@@ -156,7 +154,7 @@ UTEST_F(TestTokenStream, move_forward_1) {
 
 UTEST_F(TestTokenStream, move_forward_2) {
     utest_fixture->content = string_from_cstr("+");
-    utest_fixture->ts = ts_create(0, &utest_fixture->path, (byte*)utest_fixture->content.text, utest_fixture->content.len);
+    utest_fixture->ts = ts_create(0, NULL, (byte*)utest_fixture->content.text, utest_fixture->content.len, NULL);
 
     ts_move_forward(&utest_fixture->ts);
 
@@ -175,7 +173,7 @@ UTEST_F(TestTokenStream, move_forward_2) {
 
 UTEST_F(TestTokenStream, move_back_empty_source) {
     utest_fixture->content = STRING_EMPTY;
-    utest_fixture->ts = ts_create(0, &utest_fixture->path, (byte*)utest_fixture->content.text, utest_fixture->content.len);
+    utest_fixture->ts = ts_create(0, NULL, (byte*)utest_fixture->content.text, utest_fixture->content.len, NULL);
 
     ts_move_back(&utest_fixture->ts);
 
@@ -186,7 +184,7 @@ UTEST_F(TestTokenStream, move_back_empty_source) {
 
 UTEST_F(TestTokenStream, move_back_1) {
     utest_fixture->content = string_from_cstr("+");
-    utest_fixture->ts = ts_create(0, &utest_fixture->path, (byte*)utest_fixture->content.text, utest_fixture->content.len);
+    utest_fixture->ts = ts_create(0, NULL, (byte*)utest_fixture->content.text, utest_fixture->content.len, NULL);
 
     ts_move_back(&utest_fixture->ts);
 
@@ -197,7 +195,7 @@ UTEST_F(TestTokenStream, move_back_1) {
 
 UTEST_F(TestTokenStream, move_back_2) {
     utest_fixture->content = string_from_cstr("+");
-    utest_fixture->ts = ts_create(0, &utest_fixture->path, (byte*)utest_fixture->content.text, utest_fixture->content.len);
+    utest_fixture->ts = ts_create(0, NULL, (byte*)utest_fixture->content.text, utest_fixture->content.len, NULL);
 
     ts_move_forward(&utest_fixture->ts);
 

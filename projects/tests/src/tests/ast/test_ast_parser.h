@@ -5,7 +5,7 @@
 #include <vane/ast/ast_parser.h>
 
 struct TestASTParser {
-    String path;
+    ReportCollector rc;
     String content;
     TokenStream ts;
     ASTParser ast_parser;
@@ -13,7 +13,7 @@ struct TestASTParser {
 };
 
 UTEST_F_SETUP(TestASTParser) {
-    utest_fixture->path = STRING_EMPTY;
+    utest_fixture->rc = report_collector_create(true);
     utest_fixture->content = STRING_EMPTY;
     utest_fixture->ts = (TokenStream){ 0 };
     utest_fixture->ast_parser = (ASTParser){ 0 };
@@ -21,7 +21,8 @@ UTEST_F_SETUP(TestASTParser) {
 }
 
 UTEST_F_TEARDOWN(TestASTParser) {
-    string_destroy(&utest_fixture->path);
+    report_collector_print(&utest_fixture->rc);
+    report_collector_destroy(&utest_fixture->rc);
     string_destroy(&utest_fixture->content);
     ts_destroy(&utest_fixture->ts);
     ast_parser_destroy(&utest_fixture->ast_parser);
@@ -30,8 +31,8 @@ UTEST_F_TEARDOWN(TestASTParser) {
 
 #define AST_TEST_INIT(CONTENT, METHOD, ...) \
 utest_fixture->content = string_from_cstr(CONTENT); \
-utest_fixture->ts = ts_create(32, &utest_fixture->path, (byte*)utest_fixture->content.text, utest_fixture->content.len); \
-utest_fixture->ast_parser = ast_parser_create(&utest_fixture->ts); \
+utest_fixture->ts = ts_create(32, NULL, (byte*)utest_fixture->content.text, utest_fixture->content.len, &utest_fixture->rc); \
+utest_fixture->ast_parser = ast_parser_create(&utest_fixture->ts, &utest_fixture->rc); \
 utest_fixture->ast_node = METHOD(&utest_fixture->ast_parser, ##__VA_ARGS__); \
 const ASTNode* node = utest_fixture->ast_node
 

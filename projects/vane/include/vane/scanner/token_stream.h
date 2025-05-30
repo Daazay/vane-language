@@ -5,6 +5,8 @@
 
 #include "vane/scanner/scanner.h"
 
+#include "vane/diagnostic/report_collector.h"
+
 #define TOKEN_STREAM_DEFAULT_SIZE 1000
 
 typedef struct TokenStream TokenStream;
@@ -15,7 +17,7 @@ struct TokenStream {
     bool done;
 };
 
-TokenStream ts_create(u32 init_size, const String* path, byte* data, u64 size);
+TokenStream ts_create(u32 init_size, const String* path, byte* data, u64 size, ReportCollector* rc);
 
 void ts_destroy(TokenStream* ts);
 

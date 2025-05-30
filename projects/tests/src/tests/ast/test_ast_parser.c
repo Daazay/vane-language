@@ -27,25 +27,25 @@ UTEST_F(TestASTParser, identifier_valid) {
 // TYPE
 
 UTEST_F(TestASTParser, type_basic_from_empty) {
-    AST_TEST_INIT("", ast_parser_parse_type_basic);
+    AST_TEST_INIT("", ast_parser_parse_typeref_basic);
 
     ASSERT_EQ(node, NULL);
 }
 
 UTEST_F(TestASTParser, type_basic_invalid) {
-    AST_TEST_INIT("+", ast_parser_parse_type_basic);
+    AST_TEST_INIT("+", ast_parser_parse_typeref_basic);
 
     ASSERT_EQ(node, NULL);
 }
 
 UTEST_F(TestASTParser, type_basic_valid1) {
-    AST_TEST_INIT("i32", ast_parser_parse_type_basic);
+    AST_TEST_INIT("i32", ast_parser_parse_typeref_basic);
 
     ASSERT_AST_TYPE_I32(node);
 }
 
 UTEST_F(TestASTParser, type_basic_valid2) {
-    AST_TEST_INIT("arr", ast_parser_parse_type_basic);
+    AST_TEST_INIT("arr", ast_parser_parse_typeref_basic);
 
     ASSERT_AST_TYPE_CUSTOM(node, "arr");
 }
@@ -53,31 +53,31 @@ UTEST_F(TestASTParser, type_basic_valid2) {
 // ::PTR
 
 UTEST_F(TestASTParser, type_ptr_from_empty) {
-    AST_TEST_INIT("", ast_parser_parse_type_ptr);
+    AST_TEST_INIT("", ast_parser_parse_typeref_ptr);
 
     ASSERT_EQ(node, NULL);
 }
 
 UTEST_F(TestASTParser, type_ptr_invalid1) {
-    AST_TEST_INIT("+", ast_parser_parse_type_ptr);
+    AST_TEST_INIT("+", ast_parser_parse_typeref_ptr);
 
     ASSERT_EQ(node, NULL);
 }
 
 UTEST_F(TestASTParser, type_ptr_invalid2) {
-    AST_TEST_INIT("^", ast_parser_parse_type_ptr);
+    AST_TEST_INIT("^", ast_parser_parse_typeref_ptr);
 
     ASSERT_EQ(node, NULL);
 }
 
 UTEST_F(TestASTParser, type_ptr_valid1) {
-    AST_TEST_INIT("^u8", ast_parser_parse_type_ptr);
+    AST_TEST_INIT("^u8", ast_parser_parse_typeref_ptr);
 
     ASSERT_AST_TYPE_PTR(node, AST_NODE_TYPE_U8);
 }
 
 UTEST_F(TestASTParser, type_ptr_valid2) {
-    AST_TEST_INIT("^^u8", ast_parser_parse_type_ptr);
+    AST_TEST_INIT("^^u8", ast_parser_parse_typeref_ptr);
 
     ASSERT_AST_TYPE_PTR(node, AST_NODE_TYPE_PTR);
     ASSERT_AST_TYPE_PTR(node->as.type_ptr.type, AST_NODE_TYPE_U8);
@@ -86,43 +86,43 @@ UTEST_F(TestASTParser, type_ptr_valid2) {
 // ::ARR
 
 UTEST_F(TestASTParser, type_arr_from_empty) {
-    AST_TEST_INIT("", ast_parser_parse_type_arr);
+    AST_TEST_INIT("", ast_parser_parse_typeref_arr);
 
     ASSERT_EQ(node, NULL);
 }
 
 UTEST_F(TestASTParser, type_arr_invalid1) {
-    AST_TEST_INIT("+", ast_parser_parse_type_arr);
+    AST_TEST_INIT("+", ast_parser_parse_typeref_arr);
 
     ASSERT_EQ(node, NULL);
 }
 
 UTEST_F(TestASTParser, type_arr_invalid2) {
-    AST_TEST_INIT("[]", ast_parser_parse_type_arr);
+    AST_TEST_INIT("[]", ast_parser_parse_typeref_arr);
 
     ASSERT_EQ(node, NULL);
 }
 
 UTEST_F(TestASTParser, type_arr_invalid3) {
-    AST_TEST_INIT("[3]", ast_parser_parse_type_arr);
+    AST_TEST_INIT("[3]", ast_parser_parse_typeref_arr);
 
     ASSERT_EQ(node, NULL);
 }
 
 UTEST_F(TestASTParser, type_arr_invalid4) {
-    AST_TEST_INIT("[+]u8", ast_parser_parse_type_arr);
+    AST_TEST_INIT("[+]u8", ast_parser_parse_typeref_arr);
 
     ASSERT_EQ(node, NULL);
 }
 
 UTEST_F(TestASTParser, type_arr_valid1) {
-    AST_TEST_INIT("[]u8", ast_parser_parse_type_arr);
+    AST_TEST_INIT("[]u8", ast_parser_parse_typeref_arr);
 
     ASSERT_AST_TYPE_ARR(node, AST_NODE_TYPE_U8, AST_NODE_UNKNOWN);
 }
 
 UTEST_F(TestASTParser, type_arr_valid2) {
-    AST_TEST_INIT("[14]u16", ast_parser_parse_type_arr);
+    AST_TEST_INIT("[14]u16", ast_parser_parse_typeref_arr);
 
     ASSERT_AST_TYPE_ARR(node, AST_NODE_TYPE_U16, AST_NODE_LITERAL_DEC);
     ASSERT_AST_EXPR_DEC(node->as.type_arr.expr, "14");
@@ -131,45 +131,45 @@ UTEST_F(TestASTParser, type_arr_valid2) {
 // ::COMPLEX
 
 UTEST_F(TestASTParser, type_from_empty) {
-    AST_TEST_INIT("", ast_parser_parse_type);
+    AST_TEST_INIT("", ast_parser_parse_typeref);
 
     ASSERT_EQ(node, NULL);
 }
 
 UTEST_F(TestASTParser, type_invalid1) {
-    AST_TEST_INIT("+", ast_parser_parse_type);
+    AST_TEST_INIT("+", ast_parser_parse_typeref);
 
     ASSERT_EQ(node, NULL);
 }
 
 UTEST_F(TestASTParser, type_valid1) {
-    AST_TEST_INIT("u8", ast_parser_parse_type);
+    AST_TEST_INIT("u8", ast_parser_parse_typeref);
 
     ASSERT_AST_TYPE_U8(node);
 }
 
 UTEST_F(TestASTParser, type_valid2) {
-    AST_TEST_INIT("v", ast_parser_parse_type);
+    AST_TEST_INIT("v", ast_parser_parse_typeref);
 
     ASSERT_AST_TYPE_CUSTOM(node, "v");
 }
 
 UTEST_F(TestASTParser, type_valid3) {
-    AST_TEST_INIT("^Item", ast_parser_parse_type);
+    AST_TEST_INIT("^Item", ast_parser_parse_typeref);
 
     ASSERT_AST_TYPE_PTR(node, AST_NODE_TYPE_CUSTOM);
     ASSERT_AST_TYPE_CUSTOM(node->as.type_ptr.type, "Item");
 }
 
 UTEST_F(TestASTParser, type_valid4) {
-    AST_TEST_INIT("[]Item", ast_parser_parse_type);
+    AST_TEST_INIT("[]Item", ast_parser_parse_typeref);
 
     ASSERT_AST_TYPE_ARR(node, AST_NODE_TYPE_CUSTOM, AST_NODE_UNKNOWN);
     ASSERT_AST_TYPE_CUSTOM(node->as.type_arr.type, "Item");
 }
 
 UTEST_F(TestASTParser, type_valid5) {
-    AST_TEST_INIT("[5]^Item", ast_parser_parse_type);
+    AST_TEST_INIT("[5]^Item", ast_parser_parse_typeref);
 
     ASSERT_AST_TYPE_ARR(node, AST_NODE_TYPE_PTR, AST_NODE_LITERAL_DEC);
     ASSERT_AST_EXPR_DEC(node->as.type_arr.expr, "5");

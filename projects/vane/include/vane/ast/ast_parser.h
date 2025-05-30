@@ -6,26 +6,29 @@
 
 #include "vane/scanner/token_stream.h"
 
+#include "vane/diagnostic/report_collector.h"
+
 #include "vane/ast/ast_node.h"
 
 typedef struct ASTParser ASTParser;
 struct ASTParser {
     TokenStream* ts;
+    ReportCollector* rc;
 };
 
-ASTParser ast_parser_create(TokenStream* ts);
+ASTParser ast_parser_create(TokenStream* ts, ReportCollector* rc);
 
 void ast_parser_destroy(ASTParser* ast_parser);
 
 ASTNode* ast_parser_parse_identifier(ASTParser* ast_parser);
 
-ASTNode* ast_parser_parse_type(ASTParser* ast_parser);
+ASTNode* ast_parser_parse_typeref(ASTParser* ast_parser);
 
-ASTNode* ast_parser_parse_type_basic(ASTParser* ast_parser);
+ASTNode* ast_parser_parse_typeref_basic(ASTParser* ast_parser);
 
-ASTNode* ast_parser_parse_type_ptr(ASTParser* ast_parser);
+ASTNode* ast_parser_parse_typeref_ptr(ASTParser* ast_parser);
 
-ASTNode* ast_parser_parse_type_arr(ASTParser* ast_parser);
+ASTNode* ast_parser_parse_typeref_arr(ASTParser* ast_parser);
 
 ASTNode* ast_parser_parse_expr(ASTParser* ast_parser);
 

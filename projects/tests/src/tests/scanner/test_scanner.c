@@ -3,27 +3,28 @@
 #include <vane/scanner/scanner.h>
 
 struct TestScanner {
-    String path;
+    ReportCollector rc;
     String content;
     Token token;
 };
 
 UTEST_F_SETUP(TestScanner) {
-    utest_fixture->path = STRING_EMPTY;
+    utest_fixture->rc = report_collector_create(true);
     utest_fixture->content = STRING_EMPTY;
     utest_fixture->token = (Token){ 0 };
 }
 
 UTEST_F_TEARDOWN(TestScanner) {
+    report_collector_print(&utest_fixture->rc);
+    report_collector_destroy(&utest_fixture->rc);
     token_destroy(&utest_fixture->token);
-    string_destroy(&utest_fixture->path);
     string_destroy(&utest_fixture->content);
 }
 
 
 UTEST_F(TestScanner, scan_empty_source) {
     utest_fixture->content = STRING_EMPTY;
-    Scanner scanner = scanner_create(&utest_fixture->path, (byte*)utest_fixture->content.text, utest_fixture->content.len);
+    Scanner scanner = scanner_create(NULL, (byte*)utest_fixture->content.text, utest_fixture->content.len, &utest_fixture->rc);
     utest_fixture->token = scanner_scan_next(&scanner);
 
     ASSERT_EQ(TOKEN_EOF_, utest_fixture->token.kind);
@@ -44,7 +45,7 @@ UTEST_F(TestScanner, is_all_punctuators_implemented) {
 #include "vane/scanner/token_kind.def"
     );
 
-    Scanner scanner = scanner_create(&utest_fixture->path, (byte*)utest_fixture->content.text, utest_fixture->content.len);
+    Scanner scanner = scanner_create(NULL, (byte*)utest_fixture->content.text, utest_fixture->content.len, &utest_fixture->rc);
 
     for (u32 i = 0; i < expected_len; ++i) {
         utest_fixture->token = scanner_scan_next(&scanner);
@@ -68,7 +69,7 @@ UTEST_F(TestScanner, is_all_keywords_implemented) {
 #include "vane/scanner/token_kind.def"
     );
 
-    Scanner scanner = scanner_create(&utest_fixture->path, (byte*)utest_fixture->content.text, utest_fixture->content.len);
+    Scanner scanner = scanner_create(NULL, (byte*)utest_fixture->content.text, utest_fixture->content.len, &utest_fixture->rc);
 
     for (u32 i = 0; i < expected_len; ++i) {
         utest_fixture->token = scanner_scan_next(&scanner);
@@ -101,7 +102,7 @@ UTEST_F(TestScanner, is_all_literals_implemented) {
         "true "
     );
 
-    Scanner scanner = scanner_create(&utest_fixture->path, (byte*)utest_fixture->content.text, utest_fixture->content.len);
+    Scanner scanner = scanner_create(NULL, (byte*)utest_fixture->content.text, utest_fixture->content.len, &utest_fixture->rc);
 
     for (u32 i = 0; i < expected_len; ++i) {
         utest_fixture->token = scanner_scan_next(&scanner);
@@ -127,15 +128,15 @@ UTEST_F(TestScanner, identifier) {
     const u32 expected_len = sizeof(expected) / sizeof(Token);
 
     utest_fixture->content = string_from_cstr(""
-        "variable_name "
-        "_var "
-        "_ "
-        "var123 "
-        "123var "
+        "variable_name \n"
+        "_var \n"
+        "_ \n"
+        "var123 \n"
+        "123var \n"
         "@# "
     );
 
-    Scanner scanner = scanner_create(&utest_fixture->path, (byte*)utest_fixture->content.text, utest_fixture->content.len);
+    Scanner scanner = scanner_create(NULL, (byte*)utest_fixture->content.text, utest_fixture->content.len, &utest_fixture->rc);
 
     for (u32 i = 0; i < expected_len; ++i) {
         utest_fixture->token = scanner_scan_next(&scanner);
@@ -158,7 +159,7 @@ UTEST_F(TestScanner, comments) {
         "comment */"
     );
 
-    Scanner scanner = scanner_create(&utest_fixture->path, (byte*)utest_fixture->content.text, utest_fixture->content.len);
+    Scanner scanner = scanner_create(NULL, (byte*)utest_fixture->content.text, utest_fixture->content.len, &utest_fixture->rc);
     utest_fixture->token = scanner_scan_next(&scanner);
 
     ASSERT_EQ(TOKEN_EOF_, utest_fixture->token.kind);
@@ -213,7 +214,7 @@ UTEST_F(TestScanner, complex1) {
 
     const u32 expected_len = sizeof(expected) / sizeof(Token);
 
-    Scanner scanner = scanner_create(&utest_fixture->path, (byte*)utest_fixture->content.text, utest_fixture->content.len);
+    Scanner scanner = scanner_create(NULL, (byte*)utest_fixture->content.text, utest_fixture->content.len, &utest_fixture->rc);
 
     for (u32 i = 0; i < expected_len; ++i) {
         utest_fixture->token = scanner_scan_next(&scanner);

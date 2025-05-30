@@ -86,7 +86,6 @@ IOStatus iterate_directory(const String* dirpath, iterate_directory_fn iterate_f
 
     HANDLE handle = FindFirstFileA(search_path, &find_data);
     if (handle == INVALID_HANDLE_VALUE) {
-        printf("err: %d\n", GetLastError());
         switch (GetLastError()) {
         case ERROR_DIRECTORY:
         case ERROR_PATH_NOT_FOUND: return IO_STATUS_ERR_DIR_NOT_FOUND;

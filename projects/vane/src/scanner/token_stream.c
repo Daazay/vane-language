@@ -16,15 +16,13 @@ static inline  void ts_parse_next(TokenStream* ts) {
 #pragma endregion
 
 
-TokenStream ts_create(u32 init_size, const String* path, byte* data, u64 size) {
-    assert(path != NULL);
-
+TokenStream ts_create(u32 init_size, const String* path, byte* data, u64 size, ReportCollector* rc) {
     u32 cap = (init_size > 0)
         ? init_size
         : TOKEN_STREAM_DEFAULT_SIZE;
 
     return (TokenStream) {
-        .scanner = scanner_create(path, data, size),
+        .scanner = scanner_create(path, data, size, rc),
         .tokens = vector_create(cap, VECTOR_ITEM_SPECS(Token, &token_destroy)),
         .idx = -1,
         .done = false,
