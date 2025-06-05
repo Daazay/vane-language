@@ -26,9 +26,8 @@ ASTNode* ast_node_create(ASTNodeKind kind, SourceLoc loc);
 
 void ast_node_destroy(ASTNode* node);
 
-
 //
-ASTNode* ast_node_error_create(String msg, ASTNode* next, SourceLoc loc);
+ASTNode* ast_node_error_create(ASTNode* next, SourceLoc loc);
 
 ASTNode* ast_node_identifier_create(String value, SourceLoc loc);
 
@@ -80,7 +79,9 @@ ASTNode* ast_node_stmt_return_create(ASTNode* expr, SourceLoc loc);
 
 ASTNode* ast_node_expr_binary_create(TokenKind op, ASTNode* lhs, ASTNode* rhs, SourceLoc loc);
 
-ASTNode* ast_node_expr_unary_create(TokenKind op, ASTNode* lhs, ASTNode* rhs, SourceLoc loc);
+ASTNode* ast_node_expr_prefix_unary_create(TokenKind op, ASTNode* rhs, SourceLoc loc);
+
+ASTNode* ast_node_expr_postfix_unary_create(TokenKind op, ASTNode* lhs, SourceLoc loc);
 
 ASTNode* ast_node_expr_braces_create(ASTNode* expr, SourceLoc loc);
 

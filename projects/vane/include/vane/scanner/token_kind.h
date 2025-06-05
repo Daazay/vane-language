@@ -48,7 +48,7 @@ bool is_token_kind_a_binop(TokenKind kind);
 
 bool is_token_kind_a_prefix_unop(TokenKind kind);
 
-bool is_token_kind_an_infix_unop(TokenKind kind);
+bool is_token_kind_an_postfix_unop(TokenKind kind);
 
 bool is_token_kind_a_keyword(TokenKind kind);
 

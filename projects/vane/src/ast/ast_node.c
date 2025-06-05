@@ -19,7 +19,6 @@ void ast_node_destroy(ASTNode* node) {
 
     switch (node->kind) {
     case AST_NODE_ERROR:
-        string_destroy(&node->as.error.msg);
         ast_node_destroy(node->as.error.next);
         break;
     case AST_NODE_IDENTIFIER:
@@ -117,9 +116,11 @@ void ast_node_destroy(ASTNode* node) {
         ast_node_destroy(node->as.expr_binary.lhs);
         ast_node_destroy(node->as.expr_binary.rhs);
         break;
-    case AST_NODE_EXPR_UNARY:
-        ast_node_destroy(node->as.expr_unary.lhs);
-        ast_node_destroy(node->as.expr_unary.rhs);
+    case AST_NODE_EXPR_PREFIX_UNARY:
+        ast_node_destroy(node->as.expr_prefix_unary.rhs);
+        break;
+    case AST_NODE_EXPR_POSTFIX_UNARY:
+        ast_node_destroy(node->as.expr_postfix_unary.lhs);
         break;
     case AST_NODE_EXPR_BRACES:
         ast_node_destroy(node->as.expr_braces.expr);
@@ -174,9 +175,8 @@ void ast_node_destroy(ASTNode* node) {
     free(node);
 }
 
-ASTNode* ast_node_error_create(String msg, ASTNode* next, SourceLoc loc) {
+ASTNode* ast_node_error_create(ASTNode* next, SourceLoc loc) {
     ASTNode* node = ast_node_create(AST_NODE_ERROR, loc);
-    node->as.error.msg = msg;
     node->as.error.next = next;
     return node;
 }
@@ -353,11 +353,17 @@ ASTNode* ast_node_expr_binary_create(TokenKind op, ASTNode* lhs, ASTNode* rhs, S
     return node;
 }
 
-ASTNode* ast_node_expr_unary_create(TokenKind op, ASTNode* lhs, ASTNode* rhs, SourceLoc loc) {
-    ASTNode* node = ast_node_create(AST_NODE_EXPR_UNARY, loc);
-    node->as.expr_unary.op = op;
-    node->as.expr_unary.lhs = lhs;
-    node->as.expr_unary.rhs = rhs;
+ASTNode* ast_node_expr_prefix_unary_create(TokenKind op, ASTNode* rhs, SourceLoc loc) {
+    ASTNode* node = ast_node_create(AST_NODE_EXPR_PREFIX_UNARY, loc);
+    node->as.expr_prefix_unary.op = op;
+    node->as.expr_prefix_unary.rhs = rhs;
+    return node;
+}
+
+ASTNode* ast_node_expr_postfix_unary_create(TokenKind op, ASTNode* lhs, SourceLoc loc) {
+    ASTNode* node = ast_node_create(AST_NODE_EXPR_POSTFIX_UNARY, loc);
+    node->as.expr_postfix_unary.op = op;
+    node->as.expr_postfix_unary.lhs = lhs;
     return node;
 }
 

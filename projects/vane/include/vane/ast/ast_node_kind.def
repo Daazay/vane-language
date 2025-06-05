@@ -28,8 +28,7 @@
 
 AST_NODE_MISC(UNKNOWN,                  "unknown")
 
-AST_NODE_MISC(ERROR,                   "error",            struct { \
-    String msg; \
+AST_NODE_MISC(ERROR,                    "error",            struct { \
     ASTNode* next; \
 } error; )
 
@@ -153,11 +152,15 @@ AST_NODE_EXPR(BINARY,                   "binary",           struct { \
     ASTNode* rhs; \
 } expr_binary; )
 
-AST_NODE_EXPR(UNARY,                    "unary",            struct { \
+AST_NODE_EXPR(PREFIX_UNARY,             "prefix_unary",     struct { \
+    TokenKind op; \
+    ASTNode* rhs; \
+} expr_prefix_unary; )
+
+AST_NODE_EXPR(POSTFIX_UNARY,            "postfix_unary",    struct { \
     TokenKind op; \
     ASTNode* lhs; \
-    ASTNode* rhs; \
-} expr_unary; )
+} expr_postfix_unary; )
 
 AST_NODE_EXPR(BRACES,                   "braces",           struct { \
     ASTNode* expr; \

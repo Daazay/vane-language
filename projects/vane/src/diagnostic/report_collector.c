@@ -52,7 +52,7 @@ void report_collector_append_report_trace(ReportCollector* rc, String msg, Sourc
 void report_collector_print(const ReportCollector* rc) {
     assert(rc != NULL);
 
-    for (u32 i = 0; i < rc->reports.size; ++i) {
+    for (u32 i = rc->reports.size; i-- != 0;) {
         const Report* report = vector_at(&rc->reports, i);
         report_print(report, rc->colored_output);
     }

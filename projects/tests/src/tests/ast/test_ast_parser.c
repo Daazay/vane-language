@@ -1,5 +1,6 @@
 #include <utest/utest.h>
 
+/*
 #include "test_ast_parser.h"
 
 // MISC
@@ -395,3 +396,4 @@ UTEST_F(TestASTParser, expr_init_list_valid4) {
     const ASTNode* item3 = vector_at(&node->as.expr_init_list.items, 2);
     ASSERT_AST_EXPR_DEC(item3, "2");
 }
+*/

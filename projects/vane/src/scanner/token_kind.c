@@ -63,23 +63,18 @@ bool is_token_kind_a_prefix_unop(TokenKind kind) {
     }
 }
 
-bool is_token_kind_an_infix_unop(TokenKind kind) {
+bool is_token_kind_an_postfix_unop(TokenKind kind) {
     switch (kind) {
-    case TOKEN_PLUS:  return true;
-    case TOKEN_MINUS: return true;
-    case TOKEN_CARET: return true;
-    case TOKEN_AMP:   return true;
-#define TOKEN_UNOP(ID, NAME, VALUE, PREC) case TOKEN_##ID: return true;
-#include "vane/scanner/token_kind.def"
-    default:
-        return false;
+    case TOKEN_PLUS_PLUS:   return true;
+    case TOKEN_MINUS_MINUS: return true;
+    default: return false;
     }
 }
 
 bool is_token_kind_a_keyword(TokenKind kind) {
     switch (kind) {
-    case TOKEN_PLUS_PLUS:   return true;
-    case TOKEN_MINUS_MINUS: return true;
+#define TOKEN_KEYWORD(KIND, NAME) case TOKEN_KEYWORD_##KIND: return true;
+#include "vane/scanner/token_kind.def"
     default: return false;
     }
 }

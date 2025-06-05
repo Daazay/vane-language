@@ -54,7 +54,7 @@ ASTNode* ast_parser_parse_expr_led(ASTParser* ast_parser, ASTNode* lhs, OpPreced
 
 ASTNode* ast_parser_parse_expr_binary(ASTParser* ast_parser, ASTNode* lhs, OpPrecedence prec);
 
-ASTNode* ast_parser_parse_expr_infix_unary(ASTParser* ast_parser, ASTNode* lhs);
+ASTNode* ast_parser_parse_expr_postfix_unary(ASTParser* ast_parser, ASTNode* lhs);
 
 ASTNode* ast_parser_parse_expr_call(ASTParser* ast_parser, ASTNode* lhs);
 

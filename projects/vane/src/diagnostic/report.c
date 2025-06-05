@@ -77,9 +77,10 @@ void report_print(const Report* report, bool colored) {
     printf(" %.*s", (i32)report->msg.len, report->msg.text);
 
     if (report->loc.path != NULL) {
-        printf("at %.*s:%d:%d\n",
+        printf("at %.*s:%u:%u:%u:%u\n",
             (i32)report->loc.path->len, report->loc.path->text,
-            (i32)report->loc.begin.line, (i32)report->loc.begin.column
+            report->loc.begin.line, report->loc.begin.column,
+            report->loc.end.line, report->loc.end.column
         );
     }
     else {
@@ -100,14 +101,16 @@ void report_trace_print(const Vector* trace) {
         printf("    Cause: %.*s", (i32)t->msg.len, t->msg.text);
 
         if (t->loc.path != NULL) {
-            printf(" at %.*s:%d:%d\n",
+            printf("at %.*s:%u:%u:%u:%u\n",
                 (i32)t->loc.path->len, t->loc.path->text,
-                (i32)t->loc.begin.line, (i32)t->loc.begin.column
+                t->loc.begin.line, t->loc.begin.column,
+                t->loc.end.line, t->loc.end.column
             );
         }
         else {
-            printf(" at <source>:%d:%d\n",
-                (i32)t->loc.begin.line, (i32)t->loc.begin.column
+            printf(" at <source>:%u:%u:%u:%u\n",
+                t->loc.begin.line, t->loc.begin.column,
+                t->loc.end.line, t->loc.end.column
             );
         }
     }

@@ -49,4 +49,4 @@ String sb_get_str(const StringBuilder* sb);
 
 #define sb_append_format_va(SB, FORMAT, VA) sb_append_right_format_va(SB, FORMAT, VA)
 
-#define sb_append_format(SB, FORMAT, ...) sb_append_right_format(SB, FORMAT, __VA_ARGS__)
+#define sb_append_format(SB, FORMAT, ...) sb_append_right_format(SB, FORMAT, ##__VA_ARGS__)
