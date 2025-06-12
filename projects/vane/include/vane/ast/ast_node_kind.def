@@ -57,6 +57,17 @@ AST_NODE_MISC(IMPORT_DECL, "import:decl", struct {
     AST_NODE_VISIT_CHILD_FN(node->as.import_decl.alias);
 )
 
+AST_NODE_MISC(TYPEALIAS_DECL, "typealias:decl", struct {
+    ASTNode* id;
+    ASTNode* type;
+} typealias_decl;,
+    ast_node_destroy(node->as.typealias_decl.id);
+    ast_node_destroy(node->as.typealias_decl.type);,
+
+    AST_NODE_VISIT_CHILD_FN(node->as.typealias_decl.id);
+    AST_NODE_VISIT_CHILD_FN(node->as.typealias_decl.type);
+)
+
 AST_NODE_MISC(FUN_PARAM, "fun:param", struct {
     ASTNode* id;
     ASTNode* type;
@@ -131,7 +142,7 @@ AST_NODE_TYPE(ARR, "arr", struct {
     ast_node_destroy(node->as.type_arr.size_expr);
     ast_node_destroy(node->as.type_arr.type);,
 
-    AST_NODE_VISIT_CHILD_FN(node->as.type_arr.type);
+    AST_NODE_VISIT_CHILD_FN(node->as.type_arr.size_expr);
     AST_NODE_VISIT_CHILD_FN(node->as.type_arr.type);
 )
 

@@ -3,11 +3,14 @@
 #include <vane/ast/ast_parser.h>
 //#include <vane/ast/ast_node_utils.h>
 #include <vane/utils/terminal.h>
-#include <vane/ast/visitors/ast_dot_printer.h>
+#include <vane/ast/visitors/ast_console_printer.h>
 
 int main() {
     String content = string_from_cstr(""
-        "((10 + 14) - c++ * -5 - +24) & (16 - (c * 11)) % cast(a, 2)"
+        "fun main(args: []string): int\n"
+        "    io.println(\"Hello, world\");\n"
+        "    return 0;\n"
+        "end\n"
     );
     FileContent fc = {
         .content = (byte*)content.text,
@@ -19,8 +22,8 @@ int main() {
     TokenStream ts = token_stream_create(32, &fc, &rc);
     ASTParser ast_parser = ast_parser_create(&ts, &rc);
 
-    ASTNode* node = ast_parser_parse_expr(&ast_parser);
-    ast_dot_printer_print_node(node);
+    ASTNode* node = ast_parser_parse_fun_decl(&ast_parser);
+    ast_console_printer_print_node(node);
 
     //String s = ast_node_to_dot(node);
 
@@ -39,4 +42,8 @@ int main() {
 }
 /*
 ((10 + 14) - a++ * -5 + 24)(16 - a(c * 11)) % cast(a, 2)
+fun main(args: []string): int
+    io.println("Hello, world");
+    return 0;
+end
 */

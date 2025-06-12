@@ -7,6 +7,13 @@ void ast_console_printer_pre_fn(const ASTNode* parent, const ASTNode* node, void
 
     ASTConsolePrinter* ctx = uctx;
 
+    printf("[%*u:%*u,%*u:%*u] ",
+        3, node->loc.begin.line,
+        3, node->loc.begin.column,
+        3, node->loc.end.line,
+        3, node->loc.end.column
+    );
+
     for (u32 i = 0; i < ctx->indent; ++i) {
         printf("  ");
     }

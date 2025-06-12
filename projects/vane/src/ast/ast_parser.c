@@ -64,6 +64,26 @@ ASTNode* ast_node_type_arr_create(ASTNode* size_expr, ASTNode* type, SourceLoc l
     return node;
 }
 
+ASTNode* ast_node_package_decl_create(ASTNode* id, SourceLoc loc) {
+    ASTNode* node = ast_node_create(AST_NODE_PACKAGE_DECL, loc);
+    node->as.package_decl.id = id;
+    return node;
+}
+
+ASTNode* ast_node_import_decl_create(ASTNode* path, ASTNode* alias, SourceLoc loc) {
+    ASTNode* node = ast_node_create(AST_NODE_IMPORT_DECL, loc);
+    node->as.import_decl.path = path;
+    node->as.import_decl.alias = alias;
+    return node;
+}
+
+ASTNode* ast_node_typealias_decl_create(ASTNode* id, ASTNode* type, SourceLoc loc) {
+    ASTNode* node = ast_node_create(AST_NODE_TYPEALIAS_DECL, loc);
+    node->as.typealias_decl.id = id;
+    node->as.typealias_decl.type = type;
+    return node;
+}
+
 ASTNode* ast_node_fun_param_create(ASTNode* id, ASTNode* type, SourceLoc loc) {
     ASTNode* node = ast_node_create(AST_NODE_FUN_PARAM, loc);
     node->as.fun_param.id = id;
@@ -379,6 +399,106 @@ ASTNode* ast_parser_parse_type_arr(ASTParser* ast_parser) {
     }
 
     return ast_node_type_arr_create(size_expr, type, loc);
+}
+
+ASTNode* ast_parser_parse_package_decl(ASTParser* ast_parser) {
+    assert(ast_parser != NULL);
+
+    const Token* token = token_stream_advance_if(ast_parser->ts, TOKEN_KEYWORD_PACKAGE);
+    if (token->kind != TOKEN_KEYWORD_PACKAGE) {
+        REPORT_FAILED_TO_PARSE_AST(token->loc, AST_NODE_PACKAGE_DECL);
+        return ast_node_error_create(AST_NODE_PACKAGE_DECL, NULL, token->loc);
+    }
+
+    SourceLoc loc = token->loc;
+
+    ASTNode* id = ast_parser_parse_identifier(ast_parser);
+    loc.end = id->loc.end;
+
+    if (id->kind == AST_NODE_ERROR) {
+        REPORT_FAILED_TO_PARSE_AST(loc, AST_NODE_PACKAGE_DECL);
+        return ast_node_error_create(AST_NODE_PACKAGE_DECL, id, loc);
+    }
+
+    return ast_node_package_decl_create(id, loc);
+}
+
+ASTNode* ast_parser_parse_import_decl(ASTParser* ast_parser) {
+    assert(ast_parser != NULL);
+
+    const Token* token = token_stream_advance_if(ast_parser->ts, TOKEN_KEYWORD_IMPORT);
+    if (token->kind != TOKEN_KEYWORD_IMPORT) {
+        REPORT_FAILED_TO_PARSE_AST(token->loc, AST_NODE_IMPORT_DECL);
+        return ast_node_error_create(AST_NODE_IMPORT_DECL, NULL, token->loc);
+    }
+
+    SourceLoc loc = token->loc;
+
+    token = token_stream_advance_if(ast_parser->ts, TOKEN_LITERAL_STRING);
+    loc.end = token->loc.end;
+
+    if (token->kind != TOKEN_LITERAL_STRING) {
+        REPORT_FAILED_TO_PARSE_AST(loc, AST_NODE_IMPORT_DECL);
+        return ast_node_error_create(AST_NODE_IMPORT_DECL, NULL, loc);
+    }
+
+    ASTNode* path = ast_node_expr_literal_create(TOKEN_LITERAL_STRING, string_clone(&token->value), token->loc);
+
+    ASTNode* alias = NULL;
+
+    token = token_stream_peek_next(ast_parser->ts);
+    if (token->kind == TOKEN_KEYWORD_AS) {
+        alias = ast_parser_parse_identifier(ast_parser);
+        loc.end = alias->loc.end;
+
+        if (alias->kind == AST_NODE_ERROR) {
+            ast_node_destroy(path);
+            REPORT_FAILED_TO_PARSE_AST(loc, AST_NODE_IMPORT_DECL);
+            return ast_node_error_create(AST_NODE_IMPORT_DECL, alias, loc);
+        }
+    }
+
+    return ast_node_import_decl_create(path, alias, loc);
+}
+
+ASTNode* ast_parser_parse_typealias_decl(ASTParser* ast_parser) {
+    assert(ast_parser != NULL);
+
+    const Token* token = token_stream_advance_if(ast_parser->ts, TOKEN_KEYWORD_TYPEALIAS);
+    if (token->kind != TOKEN_KEYWORD_TYPEALIAS) {
+        REPORT_FAILED_TO_PARSE_AST(token->loc, AST_NODE_TYPEALIAS_DECL);
+        return ast_node_error_create(AST_NODE_TYPEALIAS_DECL, NULL, token->loc);
+    }
+
+    SourceLoc loc = token->loc;
+
+    ASTNode* id = ast_parser_parse_identifier(ast_parser);
+    loc.end = id->loc.end;
+
+    if (id->kind == AST_NODE_ERROR) {
+        REPORT_FAILED_TO_PARSE_AST(loc, AST_NODE_TYPEALIAS_DECL);
+        return ast_node_error_create(AST_NODE_TYPEALIAS_DECL, id, loc);
+    }
+
+    token = token_stream_advance_if(ast_parser->ts, TOKEN_EQUAL);
+    loc.end = token->loc.end;
+
+    if (token->kind != TOKEN_EQUAL) {
+        ast_node_destroy(id);
+        REPORT_FAILED_TO_PARSE_AST(loc, AST_NODE_TYPEALIAS_DECL);
+        return ast_node_error_create(AST_NODE_TYPEALIAS_DECL, NULL, loc);
+    }
+
+    ASTNode* type = ast_parser_parse_type(ast_parser);
+    loc.end = type->loc.end;
+
+    if (id->kind == AST_NODE_ERROR) {
+        ast_node_destroy(id);
+        REPORT_FAILED_TO_PARSE_AST(loc, AST_NODE_TYPEALIAS_DECL);
+        return ast_node_error_create(AST_NODE_TYPEALIAS_DECL, type, loc);
+    }
+
+    return ast_node_typealias_decl_create(id, type, loc);
 }
 
 ASTNode* ast_parser_parse_fun_param(ASTParser* ast_parser) {
