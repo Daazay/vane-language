@@ -42,7 +42,7 @@ void token_stream_destroy(TokenStream* ts) {
 bool token_stream_is_end(const TokenStream* ts) {
     assert(ts != NULL);
 
-    if (ts->done && (ts->idx + 1 == (i32)ts->tokens.size)) {
+    if (ts->done && (ts->idx + 2 == (i32)ts->tokens.size)) {
         return true;
     }
     return false;
@@ -117,7 +117,7 @@ const Token* token_stream_expect(TokenStream* ts, TokenKind expected) {
     return token;
 }
 
-const Token* token_stream_expect_any(TokenStream* ts, TokenKind expected[], u32 expected_count) {
+const Token* token_stream_expect_any_impl(TokenStream* ts, const TokenKind expected[], u32 expected_count) {
     assert(ts != NULL);
 
     const Token* token = token_stream_peek_next(ts);
@@ -136,7 +136,7 @@ const Token* token_stream_expect_any(TokenStream* ts, TokenKind expected[], u32 
         }
     }
 
-    String msg = string_from_fmt("Expected any [%s], but got `%s`",
+    String msg = string_from_fmt("Expected any [%.*s], but got `%s`",
         (i32)sb.len, sb.buf,
         get_token_kind_value(token->kind)
     );
@@ -167,7 +167,7 @@ const Token* token_stream_advance_if(TokenStream* ts, TokenKind expected) {
     return token;
 }
 
-const Token* token_stream_advance_if_any(TokenStream* ts, TokenKind expected[], u32 expected_count) {
+const Token* token_stream_advance_if_any_impl(TokenStream* ts, const TokenKind expected[], u32 expected_count) {
     assert(ts != NULL);
 
     const Token* token = token_stream_peek_next(ts);
@@ -189,7 +189,7 @@ const Token* token_stream_advance_if_any(TokenStream* ts, TokenKind expected[], 
         }
     }
 
-    String msg = string_from_fmt("Expected any [%s], but got `%s`",
+    String msg = string_from_fmt("Expected any [%.*s], but got `%s`",
         (i32)sb.len, sb.buf,
         get_token_kind_value(token->kind)
     );

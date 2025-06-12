@@ -40,6 +40,7 @@ void report_destroy(Report* report) {
     }
 
     string_destroy(&report->msg);
+    vector_destroy(&report->trace);
     free(report);
 }
 

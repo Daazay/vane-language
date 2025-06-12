@@ -47,6 +47,12 @@ ASSERT_EQ_MSG(NODE->kind, KIND, "invalid node kind")
 
 #define ASSERT_AST_ERROR(NODE) ASSERT_AST_NODE(NODE, AST_NODE_ERROR)
 
+/*...............................MISC...............................*/
+
+#define ASSERT_AST_ID(NODE, VALUE) \
+ASSERT_AST_NODE(NODE, AST_NODE_IDENTIFIER); \
+ASSERT_STREQ_MSG(NODE->as.id.value.text, VALUE, "invalid id value")
+
 /*...............................TYPE...............................*/
 
 #define ASSERT_AST_TYPE_BUILTIN(NODE, TYPE_KIND) \
@@ -69,6 +75,73 @@ if (SIZE_EXPR_KIND != AST_NODE_UNKNOWN) { \
     ASSERT_EQ_MSG(NODE->as.type_arr.size_expr, NULL, "invalid size_expr in type arr. Must be NULL"); \
 } \
 ASSERT_AST_NODE(NODE->as.type_arr.type, TYPE_KIND)
+
+/*...............................STMT...............................*/
+
+#define ASSERT_AST_STMT_EMPTY(NODE) ASSERT_AST_NODE(NODE, AST_NODE_STMT_EMPTY)
+
+#define ASSERT_AST_STMT_BLOCK(NODE, SIZE) \
+ASSERT_AST_NODE(NODE, AST_NODE_STMT_BLOCK); \
+ASSERT_EQ_MSG(NODE->as.stmt_block.block.size, SIZE, "invalid stmt block size")
+
+#define ASSERT_AST_STMT_VAR_ITEM(NODE, ID_VALUE, TYPE_KIND, EXPR_KIND) do {\
+ASSERT_AST_NODE(NODE, AST_NODE_STMT_VAR_ITEM); \
+ASSERT_AST_ID(NODE->as.stmt_var_item.id, ID_VALUE); \
+    if (TYPE_KIND != AST_NODE_UNKNOWN) { \
+        ASSERT_AST_NODE(NODE->as.stmt_var_item.type, TYPE_KIND); \
+    } else { \
+        ASSERT_EQ_MSG(NODE->as.stmt_var_item.type, NULL, "invalid type in stmt var item. Must be NULL"); \
+    } \
+    if (EXPR_KIND != AST_NODE_UNKNOWN) { \
+        ASSERT_AST_NODE(NODE->as.stmt_var_item.expr, EXPR_KIND); \
+    } else { \
+        ASSERT_EQ_MSG(NODE->as.stmt_var_item.expr, NULL, "invalid expr in stmt var item. Must be NULL"); \
+    } \
+} while (false)
+
+#define ASSERT_AST_STMT_VAR_DECL(NODE, SIZE) \
+ASSERT_AST_NODE(NODE, AST_NODE_STMT_VAR_DECL); \
+ASSERT_EQ_MSG(NODE->as.stmt_var_decl.items.size, SIZE, "invalid stmt var decl items size")
+
+#define ASSERT_AST_STMT_BRANCH(NODE, EXPR_KIND, BLOCK_SIZE) \
+ASSERT_AST_NODE(NODE, AST_NODE_STMT_BRANCH); \
+if (EXPR_KIND != AST_NODE_UNKNOWN) { \
+    ASSERT_AST_NODE(NODE->as.stmt_branch.expr, EXPR_KIND); \
+} else { \
+    ASSERT_EQ_MSG(NODE->as.stmt_branch.expr, NULL, "invalid expr in stmt branch. Must be NULL"); \
+} \
+ASSERT_EQ_MSG(NODE->as.stmt_branch.block.size, BLOCK_SIZE, "invalid stmt branch block size")
+
+#define ASSERT_AST_STMT_CONDITION(NODE, SIZE) \
+ASSERT_AST_NODE(NODE, AST_NODE_STMT_CONDITION); \
+ASSERT_EQ_MSG(NODE->as.stmt_condition.branches.size, SIZE, "invalid stmt condition items size")
+
+#define ASSERT_AST_STMT_WHILE(NODE, EXPR_KIND, BLOCK_SIZE) \
+ASSERT_AST_NODE(NODE, AST_NODE_STMT_WHILE); \
+ ASSERT_AST_NODE(NODE->as.stmt_while.expr, EXPR_KIND); \
+ASSERT_EQ_MSG(NODE->as.stmt_while.block.size, BLOCK_SIZE, "invalid stmt while block size")
+
+#define ASSERT_AST_STMT_DO(NODE, EXPR_KIND, BLOCK_SIZE) \
+ASSERT_AST_NODE(NODE, AST_NODE_STMT_DO); \
+ASSERT_AST_NODE(NODE->as.stmt_do.expr, EXPR_KIND); \
+ASSERT_EQ_MSG(NODE->as.stmt_do.block.size, BLOCK_SIZE, "invalid stmt do block size")
+
+#define ASSERT_AST_STMT_BREAK(NODE) ASSERT_AST_NODE(NODE, AST_NODE_STMT_BREAK)
+
+#define ASSERT_AST_STMT_CONTINUE(NODE) ASSERT_AST_NODE(NODE, AST_NODE_STMT_CONTINUE)
+
+#define ASSERT_AST_STMT_RETURN(NODE, EXPR_KIND) do { \
+    ASSERT_AST_NODE(NODE, AST_NODE_STMT_RETURN); \
+    if (EXPR_KIND != AST_NODE_UNKNOWN) { \
+        ASSERT_AST_NODE(NODE->as.stmt_return.expr, EXPR_KIND); \
+    } else { \
+        ASSERT_EQ_MSG(NODE->as.stmt_return.expr, NULL, "invalid expr in stmt return. Must be NULL"); \
+    } \
+} while (false)
+
+#define ASSERT_AST_STMT_EXPR(NODE, EXPR_KIND) \
+ASSERT_AST_NODE(NODE, AST_NODE_STMT_EXPR); \
+ASSERT_AST_NODE(NODE->as.stmt_expr.expr, EXPR_KIND)
 
 /*...............................EXPR...............................*/
 

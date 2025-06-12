@@ -11,6 +11,7 @@ ReportCollector report_collector_create(bool colored) {
             REPORT_COLLECTOR_DEFAULT_REPORTS_SIZE,
             VECTOR_ITEM_SPECS(Report*, &report_destroy)
         ),
+        .trace = { 0 },
         .severity_count = { 0 },
         .colored_output = colored,
     };

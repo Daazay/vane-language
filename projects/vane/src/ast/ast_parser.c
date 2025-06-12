@@ -2,7 +2,7 @@
 
 #pragma region DIAGNOSTIC
 
-#define REPORT(SEVERITY_LOC, FORMAT, ...) do { \
+#define REPORT(SEVERITY, LOC, FORMAT, ...) do { \
     String _msg = string_from_fmt(FORMAT, ##__VA_ARGS__); \
     report_collector_append_report(ast_parser->rc, SEVERITY, _msg, LOC); \
 } while (false)
@@ -10,6 +10,9 @@
 #define REPORT_INFO(LOC, FORMAT, ...)  REPORT(DIAG_SEVERITY_INFO, LOC, FORMAT, ##__VA_ARGS__)
 #define REPORT_WARN(LOC, FORMAT, ...)  REPORT(DIAG_SEVERITY_WARN, LOC, FORMAT, ##__VA_ARGS__)
 #define REPORT_ERROR(LOC, FORMAT, ...) REPORT(DIAG_SEVERITY_ERROR, LOC, FORMAT, ##__VA_ARGS__)
+
+#define REPORT_FAILED_TO_PARSE_STR(LOC, STR) REPORT_ERROR(LOC, "Failed to parse `%s`", STR)
+#define REPORT_FAILED_TO_PARSE_AST(LOC, AST) REPORT_FAILED_TO_PARSE_STR(LOC, get_ast_node_kind_name(AST))
 
 #define TRACE(LOC, FORMAT, ...) do { \
     String _msg = string_from_fmt(FORMAT, ##__VA_ARGS__); \
@@ -21,12 +24,18 @@
 
 #pragma endregion
 
-#pragma region MyRegion
+#pragma region NODE_CREATE
 
 ASTNode* ast_node_error_create(ASTNodeKind failed, ASTNode * prev, SourceLoc loc) {
     ASTNode* node = ast_node_create(AST_NODE_ERROR, loc);
     node->as.error.failed = failed;
     node->as.error.prev = prev;
+    return node;
+}
+
+ASTNode* ast_node_identifier_create(String value, SourceLoc loc) {
+    ASTNode* node = ast_node_create(AST_NODE_IDENTIFIER, loc);
+    node->as.id.value = value;
     return node;
 }
 
@@ -52,6 +61,77 @@ ASTNode* ast_node_type_arr_create(ASTNode* size_expr, ASTNode* type, SourceLoc l
     ASTNode* node = ast_node_create(AST_NODE_TYPE_ARR, loc);
     node->as.type_arr.size_expr = size_expr;
     node->as.type_arr.type = type;
+    return node;
+}
+
+ASTNode* ast_node_stmt_empty_create(SourceLoc loc) {
+    return ast_node_create(AST_NODE_STMT_EMPTY, loc);
+}
+
+ASTNode* ast_node_stmt_block_create(Vector block, SourceLoc loc) {
+    ASTNode* node = ast_node_create(AST_NODE_STMT_BLOCK, loc);
+    node->as.stmt_block.block = block;
+    return node;
+}
+
+ASTNode* ast_node_stmt_var_item_create(ASTNode* id, ASTNode* type, ASTNode* expr, SourceLoc loc) {
+    ASTNode* node = ast_node_create(AST_NODE_STMT_VAR_ITEM, loc);
+    node->as.stmt_var_item.id = id;
+    node->as.stmt_var_item.type = type;
+    node->as.stmt_var_item.expr = expr;
+    return node;
+}
+
+ASTNode* ast_node_stmt_var_decl_create(Vector items, SourceLoc loc) {
+    ASTNode* node = ast_node_create(AST_NODE_STMT_VAR_DECL, loc);
+    node->as.stmt_var_decl.items = items;
+    return node;
+}
+
+ASTNode* ast_node_stmt_branch_create(ASTNode* expr, Vector block, SourceLoc loc) {
+    ASTNode* node = ast_node_create(AST_NODE_STMT_BRANCH, loc);
+    node->as.stmt_branch.expr = expr;
+    node->as.stmt_branch.block = block;
+    return node;
+}
+
+ASTNode* ast_node_stmt_condition_create(Vector branches, SourceLoc loc) {
+    ASTNode* node = ast_node_create(AST_NODE_STMT_CONDITION, loc);
+    node->as.stmt_condition.branches = branches;
+    return node;
+}
+
+ASTNode* ast_node_stmt_while_create(ASTNode* expr, Vector block, SourceLoc loc) {
+    ASTNode* node = ast_node_create(AST_NODE_STMT_WHILE, loc);
+    node->as.stmt_while.expr = expr;
+    node->as.stmt_while.block = block;
+    return node;
+}
+
+ASTNode* ast_node_stmt_do_create(ASTNode* expr, Vector block, SourceLoc loc) {
+    ASTNode* node = ast_node_create(AST_NODE_STMT_DO, loc);
+    node->as.stmt_do.expr = expr;
+    node->as.stmt_do.block = block;
+    return node;
+}
+
+ASTNode* ast_node_stmt_break_create(SourceLoc loc) {
+    return ast_node_create(AST_NODE_STMT_BREAK, loc);
+}
+
+ASTNode* ast_node_stmt_continue_create(SourceLoc loc) {
+    return ast_node_create(AST_NODE_STMT_CONTINUE, loc);
+}
+
+ASTNode* ast_node_stmt_return_create(ASTNode* expr, SourceLoc loc) {
+    ASTNode* node = ast_node_create(AST_NODE_STMT_RETURN, loc);
+    node->as.stmt_return.expr = expr;
+    return node;
+}
+
+ASTNode* ast_node_stmt_expr_create(ASTNode* expr, SourceLoc loc) {
+    ASTNode* node = ast_node_create(AST_NODE_STMT_EXPR, loc);
+    node->as.stmt_expr.expr = expr;
     return node;
 }
 
@@ -135,6 +215,18 @@ void ast_parser_destroy(ASTParser* ast_parser) {
     /* DO NOTHING */
 }
 
+ASTNode* ast_parser_parse_identifier(ASTParser* ast_parser) {
+    assert(ast_parser != NULL);
+
+    const Token* token = token_stream_advance_if(ast_parser->ts, TOKEN_IDENTIFIER);
+    if (token->kind != TOKEN_IDENTIFIER) {
+        TRACE_FAILED_TO_PARSE_AST(token->loc, AST_NODE_IDENTIFIER);
+        return ast_node_error_create(AST_NODE_IDENTIFIER, NULL, token->loc);
+    }
+
+    return ast_node_identifier_create(string_clone(&token->value), token->loc);
+}
+
 static ASTNode* ast_parser_parse_type_impl(ASTParser* ast_parser) {
     assert(ast_parser != NULL);
 
@@ -154,7 +246,6 @@ static ASTNode* ast_parser_parse_type_impl(ASTParser* ast_parser) {
         get_ast_node_kind_name(AST_NODE_GROUP_TYPE),
         get_token_kind_value(token->kind)
     );
-    TRACE_FAILED_TO_PARSE_AST(token->loc, AST_NODE_GROUP_TYPE);
 
     return ast_node_error_create(AST_NODE_GROUP_TYPE, NULL, token->loc);
 }
@@ -198,12 +289,7 @@ ASTNode* ast_parser_parse_type_custom(ASTParser* ast_parser) {
         return ast_node_error_create(AST_NODE_TYPE_CUSTOM, NULL, token->loc);
     }
 
-    SourceLoc loc = token->loc;
-    String value = string_clone(&token->value);
-
-    token_stream_move_forward(ast_parser->ts);
-
-    return ast_node_type_custom_create(value, loc);
+    return ast_node_type_custom_create(string_clone(&token->value), token->loc);
 }
 
 ASTNode* ast_parser_parse_type_ptr(ASTParser* ast_parser) {
@@ -222,7 +308,7 @@ ASTNode* ast_parser_parse_type_ptr(ASTParser* ast_parser) {
 
     if (type->kind == AST_NODE_ERROR) {
         TRACE_FAILED_TO_PARSE_AST(loc, AST_NODE_TYPE_PTR);
-        return ast_node_error_create(AST_NODE_TYPE_PTR, NULL, loc);
+        return ast_node_error_create(AST_NODE_TYPE_PTR, type, loc);
     }
 
     return ast_node_type_ptr_create(type, loc);
@@ -271,6 +357,487 @@ ASTNode* ast_parser_parse_type_arr(ASTParser* ast_parser) {
     }
 
     return ast_node_type_arr_create(size_expr, type, loc);
+}
+
+ASTNode* ast_parser_parse_stmt(ASTParser* ast_parser) {
+    assert(ast_parser != NULL);
+
+    const Token* token = token_stream_peek_next(ast_parser->ts);
+
+    if (is_token_kind_a_beginning_of_stmt(token->kind)) {
+        switch (token->kind) {
+        case TOKEN_KEYWORD_BEGIN:    return ast_parser_parse_stmt_block(ast_parser);
+        case TOKEN_KEYWORD_VAR:      return ast_parser_parse_stmt_var_decl(ast_parser);
+        case TOKEN_KEYWORD_IF:       return ast_parser_parse_stmt_condition(ast_parser);
+        case TOKEN_KEYWORD_WHILE:    return ast_parser_parse_stmt_while(ast_parser);
+        case TOKEN_KEYWORD_DO:       return ast_parser_parse_stmt_do(ast_parser);
+        case TOKEN_KEYWORD_BREAK:    return ast_parser_parse_stmt_break(ast_parser);
+        case TOKEN_KEYWORD_CONTINUE: return ast_parser_parse_stmt_continue(ast_parser);
+        case TOKEN_KEYWORD_RETURN:   return ast_parser_parse_stmt_return(ast_parser);
+        case TOKEN_SEMICOLON:
+            SourceLoc loc = token->loc;
+            token_stream_move_forward(ast_parser->ts);
+            return ast_node_stmt_empty_create(loc);
+        default:
+            return ast_parser_parse_stmt_expr(ast_parser);
+        }
+    }
+
+    TRACE(token->loc, "Expected beginning of `%s`, but got `%s`",
+        get_ast_node_kind_name(AST_NODE_GROUP_STMT),
+        get_token_kind_value(token->kind)
+    );
+    TRACE_FAILED_TO_PARSE_AST(token->loc, AST_NODE_GROUP_STMT);
+
+    return ast_node_error_create(AST_NODE_GROUP_STMT, NULL, token->loc);
+}
+
+ASTNode* ast_parser_parse_stmt_block(ASTParser* ast_parser) {
+    assert(ast_parser != NULL);
+
+    const Token* token = token_stream_advance_if(ast_parser->ts, TOKEN_KEYWORD_BEGIN);
+    if (token->kind != TOKEN_KEYWORD_BEGIN) {
+        REPORT_FAILED_TO_PARSE_AST(token->loc, AST_NODE_STMT_BLOCK);
+        return ast_node_error_create(AST_NODE_STMT_BLOCK, NULL, token->loc);
+    }
+
+    SourceLoc loc = token->loc;
+
+    Vector block = vector_create(4, VECTOR_ITEM_SPECS(ASTNode*, &ast_node_destroy));
+
+    while (!token_stream_is_end(ast_parser->ts) && token_stream_peek_next(ast_parser->ts)->kind != TOKEN_KEYWORD_END) {
+        ASTNode* stmt = ast_parser_parse_stmt(ast_parser);
+        loc.end = stmt->loc.end;
+
+        if (stmt->kind == AST_NODE_ERROR) {
+            vector_destroy(&block);
+            REPORT_FAILED_TO_PARSE_AST(loc, AST_NODE_STMT_BLOCK);
+            return ast_node_error_create(AST_NODE_STMT_BLOCK, stmt, loc);
+        }
+
+        vector_push_back(&block, &stmt);
+    }
+
+    token = token_stream_advance_if(ast_parser->ts, TOKEN_KEYWORD_END);
+    loc.end = token->loc.end;
+
+    if (token->kind != TOKEN_KEYWORD_END) {
+        vector_destroy(&block);
+        REPORT_FAILED_TO_PARSE_AST(loc, AST_NODE_STMT_BLOCK);
+        return ast_node_error_create(AST_NODE_STMT_BLOCK, NULL, loc);
+    }
+
+    return ast_node_stmt_block_create(block, loc);
+}
+
+ASTNode* ast_parser_parse_stmt_var_item(ASTParser* ast_parser) {
+    assert(ast_parser != NULL);
+
+    ASTNode* id = ast_parser_parse_identifier(ast_parser);
+    if (id->kind == AST_NODE_ERROR) {
+        TRACE_FAILED_TO_PARSE_AST(id->loc, AST_NODE_STMT_VAR_ITEM);
+        return ast_node_error_create(AST_NODE_STMT_VAR_ITEM, id, id->loc);
+    }
+
+    SourceLoc loc = id->loc;
+
+    ASTNode* type = NULL;
+
+    const Token* token = token_stream_peek_next(ast_parser->ts);
+
+    if (token->kind == TOKEN_COLON) {
+        token_stream_move_forward(ast_parser->ts);
+
+        type = ast_parser_parse_type(ast_parser);
+        loc.end = type->loc.end;
+
+        if (type->kind == AST_NODE_ERROR) {
+            ast_node_destroy(id);
+            TRACE_FAILED_TO_PARSE_AST(loc, AST_NODE_STMT_VAR_ITEM);
+            return ast_node_error_create(AST_NODE_STMT_VAR_ITEM, type, loc);
+        }
+    }
+
+    ASTNode* expr = NULL;
+
+    token = token_stream_peek_next(ast_parser->ts);
+
+    if (token->kind == TOKEN_EQUAL) {
+        token_stream_move_forward(ast_parser->ts);
+
+        expr = ast_parser_parse_expr(ast_parser);
+        loc.end = expr->loc.end;
+
+        if (expr->kind == AST_NODE_ERROR) {
+            ast_node_destroy(id);
+            ast_node_destroy(type);
+            TRACE_FAILED_TO_PARSE_AST(loc, AST_NODE_STMT_VAR_ITEM);
+            return ast_node_error_create(AST_NODE_STMT_VAR_ITEM, expr, loc);
+        }
+    }
+
+    return ast_node_stmt_var_item_create(id, type, expr, loc);
+}
+
+ASTNode* ast_parser_parse_stmt_var_decl(ASTParser* ast_parser) {
+    assert(ast_parser != NULL);
+
+    const Token* token = token_stream_advance_if(ast_parser->ts, TOKEN_KEYWORD_VAR);
+    if (token->kind != TOKEN_KEYWORD_VAR) {
+        REPORT_FAILED_TO_PARSE_AST(token->loc, AST_NODE_STMT_VAR_DECL);
+        return ast_node_error_create(AST_NODE_STMT_VAR_DECL, NULL, token->loc);
+    }
+
+    SourceLoc loc = token->loc;
+
+    Vector items = vector_create(4, VECTOR_ITEM_SPECS(ASTNode*, &ast_node_destroy));
+
+    do {
+        ASTNode* item = ast_parser_parse_stmt_var_item(ast_parser);
+        loc.end = item->loc.end;
+
+        if (item->kind == AST_NODE_ERROR) {
+            vector_destroy(&items);
+            REPORT_FAILED_TO_PARSE_AST(loc, AST_NODE_STMT_VAR_DECL);
+            return ast_node_error_create(AST_NODE_STMT_VAR_DECL, item, loc);
+        }
+
+        vector_push_back(&items, &item);
+
+        token = token_stream_peek_next(ast_parser->ts);
+        if (token->kind == TOKEN_COMMA) {
+            token_stream_move_forward(ast_parser->ts);
+            continue;
+        }
+        break;
+    } while (!token_stream_is_end(ast_parser->ts));
+
+    return ast_node_stmt_var_decl_create(items, loc);
+}
+
+ASTNode* ast_parser_parse_stmt_branch(ASTParser* ast_parser, bool start_with_else) {
+    assert(ast_parser != NULL);
+
+    const Token* token = NULL;
+    if (start_with_else) {
+        token = token_stream_advance_if(ast_parser->ts, TOKEN_KEYWORD_ELSE);
+        if (token->kind != TOKEN_KEYWORD_ELSE) {
+            REPORT_FAILED_TO_PARSE_AST(token->loc, AST_NODE_STMT_BRANCH);
+            return ast_node_error_create(AST_NODE_STMT_BRANCH, NULL, token->loc);
+        }
+    }
+    else {
+        token = token_stream_advance_if(ast_parser->ts, TOKEN_KEYWORD_IF);
+        if (token->kind != TOKEN_KEYWORD_IF) {
+            REPORT_FAILED_TO_PARSE_AST(token->loc, AST_NODE_STMT_BRANCH);
+            return ast_node_error_create(AST_NODE_STMT_BRANCH, NULL, token->loc);
+        }
+    }
+
+    SourceLoc loc = token->loc;
+    bool is_else_br = false;
+
+    if (start_with_else) {
+        if (token_stream_peek_next(ast_parser->ts)->kind == TOKEN_KEYWORD_IF) {
+            token_stream_move_forward(ast_parser->ts);
+        }
+        else {
+            is_else_br = true;
+        }
+    }
+
+    ASTNode* expr = NULL;
+    if (!is_else_br) {
+        expr = ast_parser_parse_expr(ast_parser);
+        loc.end = expr->loc.end;
+
+        if (expr->kind == AST_NODE_ERROR) {
+            REPORT_FAILED_TO_PARSE_AST(loc, AST_NODE_STMT_BRANCH);
+            return ast_node_error_create(AST_NODE_STMT_BRANCH, expr, loc);
+        }
+
+        token = token_stream_advance_if(ast_parser->ts, TOKEN_KEYWORD_THEN);
+        loc.end = token->loc.end;
+
+        if (token->kind != TOKEN_KEYWORD_THEN) {
+            ast_node_destroy(expr);
+            REPORT_FAILED_TO_PARSE_AST(loc, AST_NODE_STMT_BRANCH);
+            return ast_node_error_create(AST_NODE_STMT_BRANCH, NULL, loc);
+        }
+    }
+
+    Vector block = vector_create(4, VECTOR_ITEM_SPECS(ASTNode*, &ast_node_destroy));
+
+    while (!token_stream_is_end(ast_parser->ts)) {
+        token = token_stream_peek_next(ast_parser->ts);
+        if (is_else_br) {
+            if (token->kind == TOKEN_KEYWORD_END) {
+                break;
+            }
+        }
+        else if ((token->kind == TOKEN_KEYWORD_ELSE) || (token->kind == TOKEN_KEYWORD_END)) {
+            break;
+        }
+
+        ASTNode* stmt = ast_parser_parse_stmt(ast_parser);
+        loc.end = stmt->loc.end;
+
+        if (stmt->kind == AST_NODE_ERROR) {
+            ast_node_destroy(expr);
+            vector_destroy(&block);
+            REPORT_FAILED_TO_PARSE_AST(loc, AST_NODE_STMT_BRANCH);
+            return ast_node_error_create(AST_NODE_STMT_BRANCH, stmt, loc);
+        }
+
+        vector_push_back(&block, &stmt);
+    }
+
+    if (is_else_br) {
+        token = token_stream_advance_if(ast_parser->ts, TOKEN_KEYWORD_END);
+        loc.end = token->loc.end;
+
+        if (token->kind != TOKEN_KEYWORD_END) {
+            ast_node_destroy(expr);
+            vector_destroy(&block);
+            REPORT_FAILED_TO_PARSE_AST(loc, AST_NODE_STMT_BRANCH);
+            return ast_node_error_create(AST_NODE_STMT_BRANCH, NULL, loc);
+        }
+    }
+    else {
+        token = token_stream_expect_any(ast_parser->ts, TOKEN_KEYWORD_ELSE, TOKEN_KEYWORD_END);
+        loc.end = token->loc.end;
+
+        if (token->kind == TOKEN_KEYWORD_END) {
+            token_stream_move_forward(ast_parser->ts);
+        }
+        else if (token->kind != TOKEN_KEYWORD_ELSE) {
+            ast_node_destroy(expr);
+            vector_destroy(&block);
+            REPORT_FAILED_TO_PARSE_AST(token->loc, AST_NODE_STMT_BRANCH);
+            return ast_node_error_create(AST_NODE_STMT_BRANCH, NULL, token->loc);
+        }
+    }
+
+    return ast_node_stmt_branch_create(expr, block, loc);
+}
+
+ASTNode* ast_parser_parse_stmt_condition(ASTParser* ast_parser) {
+    assert(ast_parser != NULL);
+
+    const Token* token = token_stream_expect(ast_parser->ts, TOKEN_KEYWORD_IF);
+    if (token->kind != TOKEN_KEYWORD_IF) {
+        REPORT_FAILED_TO_PARSE_AST(token->loc, AST_NODE_STMT_CONDITION);
+        return ast_node_error_create(AST_NODE_STMT_CONDITION, NULL, token->loc);
+    }
+
+    SourceLoc loc = token->loc;
+
+    Vector branches = vector_create(4, VECTOR_ITEM_SPECS(ASTNode*, &ast_node_destroy));
+
+    do {
+        ASTNode* branch = ast_parser_parse_stmt_branch(ast_parser, branches.size > 0);
+        loc.end = branch->loc.end;
+
+        if (branch->kind == AST_NODE_ERROR) {
+            vector_destroy(&branches);
+            REPORT_FAILED_TO_PARSE_AST(loc, AST_NODE_STMT_CONDITION);
+            return ast_node_error_create(AST_NODE_STMT_CONDITION, branch, loc);
+        }
+
+        vector_push_back(&branches, &branch);
+
+        // in case of else branch
+        if (branch->as.stmt_branch.expr == NULL) {
+            break;
+        }
+    } while (!token_stream_is_end(ast_parser->ts) && (token_stream_get_curr(ast_parser->ts)->kind != TOKEN_KEYWORD_END));
+
+    return ast_node_stmt_condition_create(branches, loc);
+}
+
+ASTNode* ast_parser_parse_stmt_while(ASTParser* ast_parser) {
+    assert(ast_parser != NULL);
+
+    const Token* token = token_stream_advance_if(ast_parser->ts, TOKEN_KEYWORD_WHILE);
+    if (token->kind != TOKEN_KEYWORD_WHILE) {
+        REPORT_FAILED_TO_PARSE_AST(token->loc, AST_NODE_STMT_WHILE);
+        return ast_node_error_create(AST_NODE_STMT_WHILE, NULL, token->loc);
+    }
+
+    SourceLoc loc = token->loc;
+
+    ASTNode* expr = ast_parser_parse_expr(ast_parser);
+    loc.end = expr->loc.end;
+
+    if (expr->kind == AST_NODE_ERROR) {
+        REPORT_FAILED_TO_PARSE_AST(loc, AST_NODE_STMT_WHILE);
+        return ast_node_error_create(AST_NODE_STMT_WHILE, expr, loc);
+    }
+
+    token = token_stream_advance_if(ast_parser->ts, TOKEN_KEYWORD_DO);
+    loc.end = token->loc.end;
+
+    if (token->kind != TOKEN_KEYWORD_DO) {
+        ast_node_destroy(expr);
+        REPORT_FAILED_TO_PARSE_AST(loc, AST_NODE_STMT_WHILE);
+        return ast_node_error_create(AST_NODE_STMT_WHILE, NULL, loc);
+    }
+
+    Vector block = vector_create(4, VECTOR_ITEM_SPECS(ASTNode*, &ast_node_destroy));
+
+    while (!token_stream_is_end(ast_parser->ts)) {
+        token = token_stream_peek_next(ast_parser->ts);
+        if (token->kind == TOKEN_KEYWORD_END) {
+            break;
+        }
+
+        ASTNode* stmt = ast_parser_parse_stmt(ast_parser);
+        loc.end = stmt->loc.end;
+
+        if (stmt->kind == AST_NODE_ERROR) {
+            ast_node_destroy(expr);
+            vector_destroy(&block);
+            REPORT_FAILED_TO_PARSE_AST(loc, AST_NODE_STMT_WHILE);
+            return ast_node_error_create(AST_NODE_STMT_WHILE, stmt, loc);
+        }
+
+        vector_push_back(&block, &stmt);
+    }
+
+    token = token_stream_advance_if(ast_parser->ts, TOKEN_KEYWORD_END);
+    loc.end = token->loc.end;
+
+    if (token->kind != TOKEN_KEYWORD_END) {
+        ast_node_destroy(expr);
+        vector_destroy(&block);
+        REPORT_FAILED_TO_PARSE_AST(loc, AST_NODE_STMT_WHILE);
+        return ast_node_error_create(AST_NODE_STMT_WHILE, NULL, loc);
+    }
+
+    return ast_node_stmt_while_create(expr, block, loc);
+}
+
+ASTNode* ast_parser_parse_stmt_do(ASTParser* ast_parser) {
+    assert(ast_parser != NULL);
+
+    const Token* token = token_stream_advance_if(ast_parser->ts, TOKEN_KEYWORD_DO);
+    if (token->kind != TOKEN_KEYWORD_DO) {
+        REPORT_FAILED_TO_PARSE_AST(token->loc, AST_NODE_STMT_DO);
+        return ast_node_error_create(AST_NODE_STMT_DO, NULL, token->loc);
+    }
+
+    SourceLoc loc = token->loc;
+
+    Vector block = vector_create(4, VECTOR_ITEM_SPECS(ASTNode*, &ast_node_destroy));
+
+    while (!token_stream_is_end(ast_parser->ts)) {
+        token = token_stream_peek_next(ast_parser->ts);
+        if (token->kind == TOKEN_KEYWORD_LOOP) {
+            break;
+        }
+
+        ASTNode* stmt = ast_parser_parse_stmt(ast_parser);
+        loc.end = stmt->loc.end;
+
+        if (stmt->kind == AST_NODE_ERROR) {
+            vector_destroy(&block);
+            REPORT_FAILED_TO_PARSE_AST(loc, AST_NODE_STMT_DO);
+            return ast_node_error_create(AST_NODE_STMT_DO, stmt, loc);
+        }
+
+        vector_push_back(&block, &stmt);
+    }
+
+    token = token_stream_advance_if(ast_parser->ts, TOKEN_KEYWORD_LOOP);
+    loc.end = token->loc.end;
+
+    if (token->kind != TOKEN_KEYWORD_LOOP) {
+        vector_destroy(&block);
+        REPORT_FAILED_TO_PARSE_AST(loc, AST_NODE_STMT_DO);
+        return ast_node_error_create(AST_NODE_STMT_DO, NULL, loc);
+    }
+
+    token = token_stream_advance_if(ast_parser->ts, TOKEN_KEYWORD_WHILE);
+    loc.end = token->loc.end;
+
+    if (token->kind != TOKEN_KEYWORD_WHILE) {
+        vector_destroy(&block);
+        REPORT_FAILED_TO_PARSE_AST(loc, AST_NODE_STMT_DO);
+        return ast_node_error_create(AST_NODE_STMT_DO, NULL, loc);
+    }
+
+    ASTNode* expr = ast_parser_parse_expr(ast_parser);
+    loc.end = expr->loc.end;
+
+    if (expr->kind == AST_NODE_ERROR) {
+        REPORT_FAILED_TO_PARSE_AST(loc, AST_NODE_STMT_DO);
+        return ast_node_error_create(AST_NODE_STMT_DO, expr, loc);
+    }
+
+    return ast_node_stmt_do_create(expr, block, loc);
+}
+
+ASTNode* ast_parser_parse_stmt_break(ASTParser* ast_parser) {
+    assert(ast_parser != NULL);
+
+    const Token* token = token_stream_advance_if(ast_parser->ts, TOKEN_KEYWORD_BREAK);
+    if (token->kind != TOKEN_KEYWORD_BREAK) {
+        REPORT_FAILED_TO_PARSE_AST(token->loc, AST_NODE_STMT_BREAK);
+        return ast_node_error_create(AST_NODE_STMT_BREAK, NULL, token->loc);
+    }
+
+    return ast_node_stmt_break_create(token->loc);
+}
+
+ASTNode* ast_parser_parse_stmt_continue(ASTParser* ast_parser) {
+    assert(ast_parser != NULL);
+
+    const Token* token = token_stream_advance_if(ast_parser->ts, TOKEN_KEYWORD_CONTINUE);
+    if (token->kind != TOKEN_KEYWORD_CONTINUE) {
+        REPORT_FAILED_TO_PARSE_AST(token->loc, AST_NODE_STMT_CONTINUE);
+        return ast_node_error_create(AST_NODE_STMT_CONTINUE, NULL, token->loc);
+    }
+
+    return ast_node_stmt_continue_create(token->loc);
+}
+
+ASTNode* ast_parser_parse_stmt_return(ASTParser* ast_parser) {
+    assert(ast_parser != NULL);
+
+    const Token* token = token_stream_advance_if(ast_parser->ts, TOKEN_KEYWORD_RETURN);
+    if (token->kind != TOKEN_KEYWORD_RETURN) {
+        REPORT_FAILED_TO_PARSE_AST(token->loc, AST_NODE_STMT_RETURN);
+        return ast_node_error_create(AST_NODE_STMT_RETURN, NULL, token->loc);
+    }
+
+    SourceLoc loc = token->loc;
+
+    ASTNode* expr = NULL;
+
+    token = token_stream_peek_next(ast_parser->ts);
+    if (token->kind != TOKEN_SEMICOLON) {
+        expr = ast_parser_parse_expr(ast_parser);
+        loc.end = expr->loc.end;
+
+        if (expr->kind == AST_NODE_ERROR) {
+            REPORT_FAILED_TO_PARSE_AST(loc, AST_NODE_STMT_RETURN);
+            return ast_node_error_create(AST_NODE_STMT_RETURN, expr, loc);
+        }
+    }
+
+    return ast_node_stmt_return_create(expr, loc);
+}
+
+ASTNode* ast_parser_parse_stmt_expr(ASTParser* ast_parser) {
+    assert(ast_parser != NULL);
+
+    ASTNode* expr = ast_parser_parse_expr(ast_parser);
+    if (expr->kind == AST_NODE_ERROR) {
+        REPORT_FAILED_TO_PARSE_AST(expr->loc, AST_NODE_STMT_EXPR);
+        return ast_node_error_create(AST_NODE_STMT_EXPR, expr, expr->loc);
+    }
+
+    return ast_node_stmt_expr_create(expr, expr->loc);
 }
 
 ASTNode* ast_parser_parse_expr(ASTParser* ast_parser) {

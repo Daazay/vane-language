@@ -64,3 +64,9 @@ bool is_token_kind_a_literal(TokenKind kind);
 OpPrecedence get_token_kind_precedence(TokenKind kind);
 
 OpAssociativity get_op_associativity(OpPrecedence prec);
+
+//
+
+bool is_token_kind_a_beginning_of_stmt(TokenKind kind);
+
+bool is_token_kind_a_beginning_of_expr(TokenKind kind);

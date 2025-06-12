@@ -76,7 +76,7 @@ AST_NODE_MISC(FUN_DECL, "fun:decl", struct {
 AST_NODE_GROUP(TYPE, "type")
 
 #ifndef AST_NODE_TYPE
-#define AST_NODE_TYPE(KIND, NAME, STRUCT, DESTROY_FUNCS) AST_NODE(TYPE_##KIND, NAME, STRUCT, DESTROY_FUNCS)
+#define AST_NODE_TYPE(KIND, NAME, STRUCT, DESTROY_FUNCS) AST_NODE(TYPE_##KIND, "type:"NAME, STRUCT, DESTROY_FUNCS)
 #endif
 
 AST_NODE_TYPE(BUILTIN, "builtin", struct {
@@ -108,8 +108,16 @@ AST_NODE_TYPE(ARR, "arr", struct {
 AST_NODE_GROUP(STMT, "stmt")
 
 #ifndef AST_NODE_STMT
-#define AST_NODE_STMT(KIND, NAME, STRUCT, DESTROY_FUNCS) AST_NODE(STMT_##KIND, NAME, STRUCT, DESTROY_FUNCS)
+#define AST_NODE_STMT(KIND, NAME, STRUCT, DESTROY_FUNCS) AST_NODE(STMT_##KIND, "stmt:"NAME, STRUCT, DESTROY_FUNCS)
 #endif
+
+AST_NODE_STMT(EMPTY, "empty", /* nothing */, /* nothing */)
+
+AST_NODE_STMT(BLOCK, "block", struct {
+    Vector block;
+} stmt_block;,
+    vector_destroy(&node->as.stmt_block.block);
+)
 
 AST_NODE_STMT(VAR_ITEM, "var:item", struct {
     ASTNode* id;
@@ -121,6 +129,12 @@ AST_NODE_STMT(VAR_ITEM, "var:item", struct {
     ast_node_destroy(node->as.stmt_var_item.expr);
 )
 
+AST_NODE_STMT(VAR_DECL, "var:decl", struct {
+    Vector items;
+} stmt_var_decl;,
+    vector_destroy(&node->as.stmt_var_decl.items);
+)
+
 AST_NODE_STMT(BRANCH, "branch", struct {
     ASTNode* expr;
     Vector block;
@@ -129,16 +143,10 @@ AST_NODE_STMT(BRANCH, "branch", struct {
     vector_destroy(&node->as.stmt_branch.block);
 )
 
-AST_NODE_STMT(VAR_DECL, "var:decl", struct {
-    Vector items;
-} stmt_var_decl;,
-    vector_destroy(&node->as.stmt_var_decl.items);
-)
-
 AST_NODE_STMT(CONDITION, "condition", struct {
-    Vector items;
+    Vector branches;
 } stmt_condition;,
-    vector_destroy(&node->as.stmt_condition.items);
+    vector_destroy(&node->as.stmt_condition.branches);
 )
 
 AST_NODE_STMT(WHILE, "while", struct {
@@ -167,6 +175,12 @@ AST_NODE_STMT(RETURN, "return", struct {
     ast_node_destroy(node->as.stmt_return.expr);
 )
 
+AST_NODE_STMT(EXPR, "expr", struct {
+    ASTNode* expr;
+} stmt_expr;,
+    ast_node_destroy(node->as.stmt_expr.expr);
+)
+
 /*..............................EXPR..........................................*/
 
 AST_NODE_GROUP(EXPR, "expr")
@@ -176,7 +190,7 @@ AST_NODE_GROUP(EXPR_NUD, "expr:nud")
 AST_NODE_GROUP(EXPR_LED, "expr:led")
 
 #ifndef AST_NODE_EXPR
-#define AST_NODE_EXPR(KIND, NAME, STRUCT, DESTROY_FUNCS) AST_NODE(EXPR_##KIND, NAME, STRUCT, DESTROY_FUNCS)
+#define AST_NODE_EXPR(KIND, NAME, STRUCT, DESTROY_FUNCS) AST_NODE(EXPR_##KIND, "expr:"NAME, STRUCT, DESTROY_FUNCS)
 #endif
 
 AST_NODE_EXPR(BINARY, "binary", struct {
@@ -188,7 +202,7 @@ AST_NODE_EXPR(BINARY, "binary", struct {
     ast_node_destroy(node->as.expr_binary.rhs);
 )
 
-AST_NODE_EXPR(PREFIX_UNARY, "unary:pefix", struct {
+AST_NODE_EXPR(PREFIX_UNARY, "unary:prefix", struct {
     TokenKind op;
     ASTNode* rhs;
 } expr_prefix_unary;,

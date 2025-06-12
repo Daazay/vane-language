@@ -21,6 +21,11 @@ ASTParser ast_parser_create(TokenStream* ts, ReportCollector* rc);
 
 void ast_parser_destroy(ASTParser* ast_parser);
 
+
+/*...............................MISC...............................*/
+
+ASTNode* ast_parser_parse_identifier(ASTParser* ast_parser);
+
 /*...............................TYPE...............................*/
 
 ASTNode* ast_parser_parse_type(ASTParser* ast_parser);
@@ -32,6 +37,32 @@ ASTNode* ast_parser_parse_type_custom(ASTParser* ast_parser);
 ASTNode* ast_parser_parse_type_ptr(ASTParser* ast_parser);
 
 ASTNode* ast_parser_parse_type_arr(ASTParser* ast_parser);
+
+/*...............................STMT...............................*/
+
+ASTNode* ast_parser_parse_stmt(ASTParser* ast_parser);
+
+ASTNode* ast_parser_parse_stmt_block(ASTParser* ast_parser);
+
+ASTNode* ast_parser_parse_stmt_var_item(ASTParser* ast_parser);
+
+ASTNode* ast_parser_parse_stmt_var_decl(ASTParser* ast_parser);
+
+ASTNode* ast_parser_parse_stmt_branch(ASTParser* ast_parser, bool start_with_else);
+
+ASTNode* ast_parser_parse_stmt_condition(ASTParser* ast_parser);
+
+ASTNode* ast_parser_parse_stmt_while(ASTParser* ast_parser);
+
+ASTNode* ast_parser_parse_stmt_do(ASTParser* ast_parser);
+
+ASTNode* ast_parser_parse_stmt_break(ASTParser* ast_parser);
+
+ASTNode* ast_parser_parse_stmt_continue(ASTParser* ast_parser);
+
+ASTNode* ast_parser_parse_stmt_return(ASTParser* ast_parser);
+
+ASTNode* ast_parser_parse_stmt_expr(ASTParser* ast_parser);
 
 /*...............................EXPR...............................*/
 

@@ -37,8 +37,18 @@ const Token* token_stream_advance(TokenStream* ts);
 
 const Token* token_stream_expect(TokenStream* ts, TokenKind expected);
 
-const Token* token_stream_expect_any(TokenStream* ts, TokenKind expected[], u32 expected_count);
+const Token* token_stream_expect_any_impl(TokenStream* ts, const TokenKind expected[], u32 expected_count);
+
+#define token_stream_expect_any(TS, ...) \
+token_stream_expect_any_impl(TS, \
+((const TokenKind[]) { __VA_ARGS__ }), \
+(sizeof(((const TokenKind[]) { __VA_ARGS__ })) / sizeof(TokenKind)))
 
 const Token* token_stream_advance_if(TokenStream* ts, TokenKind expected);
 
-const Token* token_stream_advance_if_any(TokenStream* ts, TokenKind expected[], u32 expected_count);
+const Token* token_stream_advance_if_any_impl(TokenStream* ts, const TokenKind expected[], u32 expected_count);
+
+#define token_stream_advance_any(TS, ...) \
+token_stream_advance_if_any_impl(TS, \
+((const TokenKind[]) { __VA_ARGS__ }), \
+(sizeof(((const TokenKind[]) { __VA_ARGS__ })) / sizeof(TokenKind)))
