@@ -75,6 +75,7 @@ bool is_token_kind_a_postfix_unop(TokenKind kind) {
     switch (kind) {
     case TOKEN_PLUS_PLUS:   return true;
     case TOKEN_MINUS_MINUS: return true;
+    case TOKEN_CARET:       return true; // deref
     default: return false;
     }
 }

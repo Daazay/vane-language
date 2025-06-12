@@ -491,3 +491,65 @@ UTEST_F(TestASTParser, expr_literal_string7) {
     AST_TEST_INIT("\"\\n\"", ast_parser_parse_expr_literal);
     ASSERT_AST_EXPR_LITERAL_STRING(node, "\\n");
 }
+
+// COMPLEX
+
+UTEST_F(TestASTParser, expr_complex1) {
+    AST_TEST_INIT("5 + 3 - 2", ast_parser_parse_expr);
+    ASSERT_AST_EXPR_BINARY(node, TOKEN_MINUS, AST_NODE_EXPR_BINARY, AST_NODE_EXPR_LITERAL);
+    ASSERT_AST_EXPR_LITERAL_DEC(node->as.expr_binary.rhs, "2");
+    ASSERT_AST_EXPR_BINARY(node->as.expr_binary.lhs, TOKEN_PLUS, AST_NODE_EXPR_LITERAL, AST_NODE_EXPR_LITERAL);
+    ASSERT_AST_EXPR_LITERAL_DEC(node->as.expr_binary.lhs->as.expr_binary.lhs, "5");
+    ASSERT_AST_EXPR_LITERAL_DEC(node->as.expr_binary.lhs->as.expr_binary.rhs, "3");
+}
+
+UTEST_F(TestASTParser, expr_complex2) {
+    AST_TEST_INIT("5 * 3 - 2", ast_parser_parse_expr);
+    ASSERT_AST_EXPR_BINARY(node, TOKEN_MINUS, AST_NODE_EXPR_BINARY, AST_NODE_EXPR_LITERAL);
+    ASSERT_AST_EXPR_LITERAL_DEC(node->as.expr_binary.rhs, "2");
+    ASSERT_AST_EXPR_BINARY(node->as.expr_binary.lhs, TOKEN_STAR, AST_NODE_EXPR_LITERAL, AST_NODE_EXPR_LITERAL);
+    ASSERT_AST_EXPR_LITERAL_DEC(node->as.expr_binary.lhs->as.expr_binary.lhs, "5");
+    ASSERT_AST_EXPR_LITERAL_DEC(node->as.expr_binary.lhs->as.expr_binary.rhs, "3");
+}
+
+UTEST_F(TestASTParser, expr_complex3) {
+    AST_TEST_INIT("5 + 3 * 2", ast_parser_parse_expr);
+    ASSERT_AST_EXPR_BINARY(node, TOKEN_PLUS, AST_NODE_EXPR_LITERAL, AST_NODE_EXPR_BINARY);
+    ASSERT_AST_EXPR_LITERAL_DEC(node->as.expr_binary.lhs, "5");
+    ASSERT_AST_EXPR_BINARY(node->as.expr_binary.rhs, TOKEN_STAR, AST_NODE_EXPR_LITERAL, AST_NODE_EXPR_LITERAL);
+    ASSERT_AST_EXPR_LITERAL_DEC(node->as.expr_binary.rhs->as.expr_binary.lhs, "3");
+    ASSERT_AST_EXPR_LITERAL_DEC(node->as.expr_binary.rhs->as.expr_binary.rhs, "2");
+}
+
+UTEST_F(TestASTParser, expr_complex4) {
+    AST_TEST_INIT("obj.data[0].field(3 + 2)", ast_parser_parse_expr);
+    ASSERT_AST_EXPR_CALL(node, AST_NODE_EXPR_MEMBER, 1);
+    // arg
+    const ASTNode* arg = vector_at(&node->as.expr_call.args, 0);
+    ASSERT_AST_EXPR_BINARY(arg, TOKEN_PLUS, AST_NODE_EXPR_LITERAL, AST_NODE_EXPR_LITERAL);
+    ASSERT_AST_EXPR_LITERAL_DEC(arg->as.expr_binary.lhs, "3");
+    ASSERT_AST_EXPR_LITERAL_DEC(arg->as.expr_binary.rhs, "2");
+    //
+    ASSERT_AST_EXPR_MEMBER(node->as.expr_call.callee, AST_NODE_EXPR_INDEX, AST_NODE_EXPR_PLACE);
+    ASSERT_AST_EXPR_PLACE(node->as.expr_call.callee->as.expr_member.member, "field");
+    //
+    ASSERT_AST_EXPR_INDEX(node->as.expr_call.callee->as.expr_member.object, AST_NODE_EXPR_MEMBER, 01);
+    // arg
+    const ASTNode* arg2 = vector_at(&node->as.expr_call.callee->as.expr_member.object->as.expr_index.args, 0);
+    ASSERT_AST_EXPR_LITERAL_DEC(arg2, "0");
+    //
+    ASSERT_AST_EXPR_MEMBER(node->as.expr_call.callee->as.expr_member.object->as.expr_index.callee, AST_NODE_EXPR_PLACE, AST_NODE_EXPR_PLACE);
+    ASSERT_AST_EXPR_PLACE(node->as.expr_call.callee->as.expr_member.object->as.expr_index.callee->as.expr_member.object, "obj");
+    ASSERT_AST_EXPR_PLACE(node->as.expr_call.callee->as.expr_member.object->as.expr_index.callee->as.expr_member.member, "data");
+}
+
+UTEST_F(TestASTParser, expr_complex5) {
+    AST_TEST_INIT("(objPtr + 15)^.field", ast_parser_parse_expr);
+    ASSERT_AST_EXPR_MEMBER(node, AST_NODE_EXPR_POSTFIX_UNARY, AST_NODE_EXPR_PLACE);
+    ASSERT_AST_EXPR_PLACE(node->as.expr_member.member, "field");
+    //
+    ASSERT_AST_EXPR_POSTFIX_UNARY(node->as.expr_member.object, TOKEN_CARET, AST_NODE_EXPR_BRACES);
+    ASSERT_AST_EXPR_BINARY(node->as.expr_member.object->as.expr_postfix_unary.lhs->as.expr_braces.expr, TOKEN_PLUS, AST_NODE_EXPR_PLACE, AST_NODE_EXPR_LITERAL);
+    ASSERT_AST_EXPR_LITERAL_DEC(node->as.expr_member.object->as.expr_postfix_unary.lhs->as.expr_braces.expr->as.expr_binary.rhs, "15");
+    ASSERT_AST_EXPR_PLACE(node->as.expr_member.object->as.expr_postfix_unary.lhs->as.expr_braces.expr->as.expr_binary.lhs, "objPtr");
+}

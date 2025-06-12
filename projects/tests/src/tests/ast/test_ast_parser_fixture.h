@@ -47,6 +47,31 @@ ASSERT_EQ_MSG(NODE->kind, KIND, "invalid node kind")
 
 #define ASSERT_AST_ERROR(NODE) ASSERT_AST_NODE(NODE, AST_NODE_ERROR)
 
+/*...............................TYPE...............................*/
+
+#define ASSERT_AST_TYPE_BUILTIN(NODE, TYPE_KIND) \
+ASSERT_AST_NODE(NODE, AST_NODE_TYPE_BUILTIN); \
+ASSERT_EQ_MSG(NODE->as.type_builtin.kind, TYPE_KIND, "invalid type builtin kind")
+
+#define ASSERT_AST_TYPE_CUSTOM(NODE, VALUE) \
+ASSERT_AST_NODE(NODE, AST_NODE_TYPE_CUSTOM); \
+ASSERT_STREQ_MSG(NODE->as.type_custom.value.text, VALUE, "invalid type custom value")
+
+#define ASSERT_AST_TYPE_PTR(NODE, TYPE_KIND) \
+ASSERT_AST_NODE(NODE, AST_NODE_TYPE_PTR); \
+ASSERT_AST_NODE(NODE->as.type_ptr.type, TYPE_KIND)
+
+#define ASSERT_AST_TYPE_ARR(NODE, SIZE_EXPR_KIND, TYPE_KIND) \
+ASSERT_AST_NODE(NODE, AST_NODE_TYPE_ARR); \
+if (SIZE_EXPR_KIND != AST_NODE_UNKNOWN) { \
+    ASSERT_AST_NODE(NODE->as.type_arr.size_expr, SIZE_EXPR_KIND); \
+} else { \
+    ASSERT_EQ_MSG(NODE->as.type_arr.size_expr, NULL, "invalid size_expr in type arr. Must be NULL"); \
+} \
+ASSERT_AST_NODE(NODE->as.type_arr.type, TYPE_KIND)
+
+/*...............................EXPR...............................*/
+
 #define ASSERT_AST_EXPR_BINARY(NODE, OP, LHS_KIND, RHS_KIND) \
 ASSERT_AST_NODE(NODE, AST_NODE_EXPR_BINARY); \
 ASSERT_EQ_MSG(NODE->as.expr_binary.op, OP, "invalid binary op"); \

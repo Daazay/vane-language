@@ -21,6 +21,20 @@ ASTParser ast_parser_create(TokenStream* ts, ReportCollector* rc);
 
 void ast_parser_destroy(ASTParser* ast_parser);
 
+/*...............................TYPE...............................*/
+
+ASTNode* ast_parser_parse_type(ASTParser* ast_parser);
+
+ASTNode* ast_parser_parse_type_builtin(ASTParser* ast_parser);
+
+ASTNode* ast_parser_parse_type_custom(ASTParser* ast_parser);
+
+ASTNode* ast_parser_parse_type_ptr(ASTParser* ast_parser);
+
+ASTNode* ast_parser_parse_type_arr(ASTParser* ast_parser);
+
+/*...............................EXPR...............................*/
+
 ASTNode* ast_parser_parse_expr(ASTParser* ast_parser);
 
 ASTNode* ast_parser_parse_expr_with_prec(ASTParser* ast_parser, OpPrecedence prec);
