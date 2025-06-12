@@ -952,6 +952,7 @@ ASTNode* ast_parser_parse_stmt_do(ASTParser* ast_parser) {
     loc.end = expr->loc.end;
 
     if (expr->kind == AST_NODE_ERROR) {
+        vector_destroy(&block);
         REPORT_FAILED_TO_PARSE_AST(loc, AST_NODE_STMT_DO);
         return ast_node_error_create(AST_NODE_STMT_DO, expr, loc);
     }
