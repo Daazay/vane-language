@@ -5,7 +5,15 @@
 #include <vane/utils/terminal.h>
 
 int main() {
-    String content = string_from_cstr("((10 + 14) - a++ * -5 + 24)(16 - a(c * 11)) % cast(a, 2)");
+    String content = string_from_cstr(""
+        "fun main(): int\n"
+        "   var x: int\n"
+        "   var y: int\n"
+        "   x = 10\n"
+        "   y = fib(x)\n"
+        "   return y;\n"
+        "end\n"
+    );
     FileContent fc = {
         .content = (byte*)content.text,
         .size = content.len,
@@ -16,7 +24,7 @@ int main() {
     TokenStream ts = token_stream_create(32, &fc, &rc);
     ASTParser ast_parser = ast_parser_create(&ts, &rc);
 
-    ASTNode* node = ast_parser_parse_expr(&ast_parser);
+    ASTNode* node = ast_parser_parse_fun_decl(&ast_parser);
     //String s = ast_node_to_dot(node);
 
     //printf("%.*s", (i32)s.len, s.text);

@@ -38,6 +38,14 @@ ASTNode* ast_parser_parse_type_ptr(ASTParser* ast_parser);
 
 ASTNode* ast_parser_parse_type_arr(ASTParser* ast_parser);
 
+/*...............................FUN................................*/
+
+ASTNode* ast_parser_parse_fun_param(ASTParser* ast_parser);
+
+ASTNode* ast_parser_parse_fun_sign(ASTParser* ast_parser);
+
+ASTNode* ast_parser_parse_fun_decl(ASTParser* ast_parser);
+
 /*...............................STMT...............................*/
 
 ASTNode* ast_parser_parse_stmt(ASTParser* ast_parser);

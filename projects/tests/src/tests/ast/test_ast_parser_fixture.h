@@ -78,6 +78,33 @@ ASSERT_AST_NODE(NODE->as.type_arr.type, TYPE_KIND)
 
 /*...............................STMT...............................*/
 
+#define ASSERT_AST_FUN_PARAM(NODE, ID_VALUE, TYPE_KIND) \
+ASSERT_AST_NODE(NODE, AST_NODE_FUN_PARAM); \
+if (TYPE_KIND != AST_NODE_UNKNOWN) { \
+    ASSERT_AST_NODE(NODE->as.fun_param.type, TYPE_KIND); \
+} else { \
+    ASSERT_EQ_MSG(NODE->as.fun_param.type, NULL, "invalid type in fun param. Must be NULL"); \
+} \
+ASSERT_AST_ID(NODE->as.fun_param.id, ID_VALUE)
+
+#define ASSERT_AST_FUN_SIGN(NODE, ID_VALUE, TYPE_KIND, PARAM_COUNT) \
+ASSERT_AST_NODE(NODE, AST_NODE_FUN_SIGN); \
+if (TYPE_KIND != AST_NODE_UNKNOWN) { \
+    ASSERT_AST_NODE(NODE->as.fun_sign.type, TYPE_KIND); \
+} else { \
+    ASSERT_EQ_MSG(NODE->as.fun_sign.type, NULL, "invalid type in fun sign. Must be NULL"); \
+} \
+ASSERT_AST_ID(NODE->as.fun_sign.id, ID_VALUE); \
+ASSERT_EQ_MSG(NODE->as.fun_sign.params.size, PARAM_COUNT, "invalid fun sign params size")
+
+#define ASSERT_AST_FUN_DECL(NODE, SIGN_ID_VALUE, SIGN_TYPE_KIND, SIGN_PARAM_COUNT, BLOCK_SIZE) \
+ASSERT_AST_NODE(NODE, AST_NODE_FUN_DECL); \
+ASSERT_AST_FUN_SIGN(NODE->as.fun_decl.sign, SIGN_ID_VALUE, SIGN_TYPE_KIND, SIGN_PARAM_COUNT); \
+ASSERT_EQ_MSG(NODE->as.fun_decl.block.size, BLOCK_SIZE, "invalid fun decl block size")
+
+
+/*...............................STMT...............................*/
+
 #define ASSERT_AST_STMT_EMPTY(NODE) ASSERT_AST_NODE(NODE, AST_NODE_STMT_EMPTY)
 
 #define ASSERT_AST_STMT_BLOCK(NODE, SIZE) \
