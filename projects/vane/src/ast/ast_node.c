@@ -2,6 +2,8 @@
 
 #include <stdlib.h>
 
+#include "vane/utils/string_builder.h"
+
 ASTNode* ast_node_create(ASTNodeKind kind, SourceLoc loc) {
     ASTNode* node = malloc(sizeof(ASTNode));
     assert(node != NULL);
@@ -18,9 +20,9 @@ void ast_node_destroy(ASTNode* node) {
     }
 
     switch (node->kind) {
-#define AST_NODE(KIND, NAME, STRUCT, DESTROY_FUNCS) \
+#define AST_NODE(KIND, NAME, STRUCT, DESTROY, ...) \
 case AST_NODE_##KIND: \
-    DESTROY_FUNCS; \
+    DESTROY; \
     break;
 #include "vane/ast/ast_node_kind.def"
     default:

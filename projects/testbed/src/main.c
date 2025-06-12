@@ -3,16 +3,11 @@
 #include <vane/ast/ast_parser.h>
 //#include <vane/ast/ast_node_utils.h>
 #include <vane/utils/terminal.h>
+#include <vane/ast/visitors/ast_dot_printer.h>
 
 int main() {
     String content = string_from_cstr(""
-        "fun main(): int\n"
-        "   var x: int\n"
-        "   var y: int\n"
-        "   x = 10\n"
-        "   y = fib(x)\n"
-        "   return y;\n"
-        "end\n"
+        "((10 + 14) - c++ * -5 - +24) & (16 - (c * 11)) % cast(a, 2)"
     );
     FileContent fc = {
         .content = (byte*)content.text,
@@ -24,7 +19,9 @@ int main() {
     TokenStream ts = token_stream_create(32, &fc, &rc);
     ASTParser ast_parser = ast_parser_create(&ts, &rc);
 
-    ASTNode* node = ast_parser_parse_fun_decl(&ast_parser);
+    ASTNode* node = ast_parser_parse_expr(&ast_parser);
+    ast_dot_printer_print_node(node);
+
     //String s = ast_node_to_dot(node);
 
     //printf("%.*s", (i32)s.len, s.text);

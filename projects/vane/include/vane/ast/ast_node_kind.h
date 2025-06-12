@@ -5,7 +5,7 @@
 typedef enum ASTNodeKind ASTNodeKind;
 
 enum ASTNodeKind {
-#define AST_NODE(KIND, NAME, STRUCT, DESTROY_FUNCS) AST_NODE_##KIND,
+#define AST_NODE(KIND, ...) AST_NODE_##KIND,
 #include "vane/ast/ast_node_kind.def"
 };
 
