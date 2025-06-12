@@ -5,7 +5,8 @@
 
 typedef enum IOStatus IOStatus;
 
-typedef struct DirEntry DirEntry;
+typedef struct FileContent FileContent;
+
 typedef bool(*iterate_directory_fn)(const String* name, bool is_dir, u64 size, void* data);
 
 enum IOStatus {
@@ -18,6 +19,14 @@ enum IOStatus {
     IO_STATUS_ERR_DIR_READ_FAILED,
 };
 
-IOStatus file_load(const String* path, byte** data, u64* size);
+struct FileContent {
+    const String* path;
+    u64 size;
+    byte* content;
+};
+
+IOStatus file_content_load(FileContent* fc, const String* path);
+
+void file_content_destroy(FileContent* fc);
 
 IOStatus iterate_directory(const String* dirpath, iterate_directory_fn iterate_fn, void* data);

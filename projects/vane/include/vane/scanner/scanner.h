@@ -3,6 +3,7 @@
 #include "vane/utils/defines.h"
 #include "vane/utils/string.h"
 #include "vane/utils/source_loc.h"
+#include "vane/utils/file_utils.h"
 
 #include "vane/scanner/token.h"
 
@@ -12,6 +13,7 @@
 #define SCANNER_DEFAULT_COLUMN_POS 1
 
 typedef struct Scanner Scanner;
+
 struct Scanner {
     String content;
     u64 pos;
@@ -21,7 +23,7 @@ struct Scanner {
     ReportCollector* rc;
 };
 
-Scanner scanner_create(const String* path, byte* data, u64 size, ReportCollector* rc);
+Scanner scanner_create(const FileContent* fc, ReportCollector* rc);
 
 void scanner_destroy(Scanner* scanner);
 

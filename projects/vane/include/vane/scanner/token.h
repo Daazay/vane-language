@@ -7,6 +7,7 @@
 #include "vane/scanner/token_kind.h"
 
 typedef struct Token Token;
+
 struct Token {
     TokenKind kind;
     String value;

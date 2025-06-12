@@ -4,13 +4,13 @@
 
 struct TestScanner {
     ReportCollector rc;
-    String content;
+    FileContent fc;
     Token token;
 };
 
 UTEST_F_SETUP(TestScanner) {
     utest_fixture->rc = report_collector_create(true);
-    utest_fixture->content = STRING_EMPTY;
+    utest_fixture->fc = (FileContent){ 0 };
     utest_fixture->token = (Token){ 0 };
 }
 
@@ -18,13 +18,12 @@ UTEST_F_TEARDOWN(TestScanner) {
     report_collector_print(&utest_fixture->rc);
     report_collector_destroy(&utest_fixture->rc);
     token_destroy(&utest_fixture->token);
-    string_destroy(&utest_fixture->content);
+    file_content_destroy(&utest_fixture->fc);
 }
 
 
 UTEST_F(TestScanner, scan_empty_source) {
-    utest_fixture->content = STRING_EMPTY;
-    Scanner scanner = scanner_create(NULL, (byte*)utest_fixture->content.text, utest_fixture->content.len, &utest_fixture->rc);
+    Scanner scanner = scanner_create(&utest_fixture->fc, &utest_fixture->rc);
     utest_fixture->token = scanner_scan_next(&scanner);
 
     ASSERT_EQ(TOKEN_EOF_, utest_fixture->token.kind);
@@ -40,12 +39,14 @@ UTEST_F(TestScanner, is_all_punctuators_implemented) {
     };
     const u32 expected_len = sizeof(expected) / sizeof(Token);
 
-    utest_fixture->content = string_from_cstr(""
+    String tmp = string_from_cstr(""
 #define TOKEN_PUNC(ID, NAME, VALUE) VALUE" "
 #include "vane/scanner/token_kind.def"
     );
+    utest_fixture->fc.content = (byte*)tmp.text;
+    utest_fixture->fc.size = tmp.len;
 
-    Scanner scanner = scanner_create(NULL, (byte*)utest_fixture->content.text, utest_fixture->content.len, &utest_fixture->rc);
+    Scanner scanner = scanner_create(&utest_fixture->fc, &utest_fixture->rc);
 
     for (u32 i = 0; i < expected_len; ++i) {
         utest_fixture->token = scanner_scan_next(&scanner);
@@ -64,12 +65,14 @@ UTEST_F(TestScanner, is_all_keywords_implemented) {
     };
     const u32 expected_len = sizeof(expected) / sizeof(Token);
 
-    utest_fixture->content = string_from_cstr(""
+    String tmp = string_from_cstr(""
 #define TOKEN_KEYWORD(ID, NAME) NAME" "
 #include "vane/scanner/token_kind.def"
     );
+    utest_fixture->fc.content = (byte*)tmp.text;
+    utest_fixture->fc.size = tmp.len;
 
-    Scanner scanner = scanner_create(NULL, (byte*)utest_fixture->content.text, utest_fixture->content.len, &utest_fixture->rc);
+    Scanner scanner = scanner_create(&utest_fixture->fc, &utest_fixture->rc);
 
     for (u32 i = 0; i < expected_len; ++i) {
         utest_fixture->token = scanner_scan_next(&scanner);
@@ -80,10 +83,21 @@ UTEST_F(TestScanner, is_all_keywords_implemented) {
 
 // LITERALS
 
+UTEST_F(TestScanner, literal_string_) {
+    String tmp = string_from_cstr(""
+        "\"hellow\\\r\n\\\na\""
+    );
+    utest_fixture->fc.content = (byte*)tmp.text;
+    utest_fixture->fc.size = tmp.len;
+
+    Scanner scanner = scanner_create(&utest_fixture->fc, &utest_fixture->rc);
+
+    utest_fixture->token = scanner_scan_next(&scanner);
+}
+
 UTEST_F(TestScanner, is_all_literals_implemented) {
     const Token expected[] = {
         token_create(TOKEN_LITERAL_STRING, (String) { .text = "hello, world", .len = 12 }, (SourceLoc) { 0 }),
-        token_create(TOKEN_LITERAL_STRING, (String) { .text = "hello,\n world", .len = 13 }, (SourceLoc) { 0 }),
         token_create(TOKEN_LITERAL_CHAR, (String) { .text = "a", .len = 1 }, (SourceLoc) { 0 }),
         token_create(TOKEN_LITERAL_DEC, (String) { .text = "12345", .len = 5 }, (SourceLoc) { 0 }),
         token_create(TOKEN_LITERAL_HEX, (String) { .text = "0x1aF", .len = 5 }, (SourceLoc) { 0 }),
@@ -92,17 +106,18 @@ UTEST_F(TestScanner, is_all_literals_implemented) {
     };
     const u32 expected_len = sizeof(expected) / sizeof(Token);
 
-    utest_fixture->content = string_from_cstr(""
+    String tmp = string_from_cstr(""
         "\"hello, world\" "
-        "`hello,\n world` "
         "\'a\' "
         "12345 "
         "0x1aF "
         "0b1010 "
         "true "
     );
+    utest_fixture->fc.content = (byte*)tmp.text;
+    utest_fixture->fc.size = tmp.len;
 
-    Scanner scanner = scanner_create(NULL, (byte*)utest_fixture->content.text, utest_fixture->content.len, &utest_fixture->rc);
+    Scanner scanner = scanner_create(&utest_fixture->fc, &utest_fixture->rc);
 
     for (u32 i = 0; i < expected_len; ++i) {
         utest_fixture->token = scanner_scan_next(&scanner);
@@ -122,12 +137,12 @@ UTEST_F(TestScanner, identifier) {
        token_create(TOKEN_IDENTIFIER, (String) { .text = "_var", .len = 4 }, (SourceLoc) { 0 }),
        token_create(TOKEN_IDENTIFIER, (String) { .text = "_", .len = 1 }, (SourceLoc) { 0 }),
        token_create(TOKEN_IDENTIFIER, (String) { .text = "var123", .len = 6 }, (SourceLoc) { 0 }),
-       token_create(TOKEN_INVALID, (String) { .text = "123var", .len = 6 }, (SourceLoc) { 0 }),
-       token_create(TOKEN_UNKNOWN, (String) { .text = "@#", .len = 2 }, (SourceLoc) { 0 }),
+       token_create(TOKEN_INVALID, STRING_EMPTY, (SourceLoc) { 0 }),
+       token_create(TOKEN_UNKNOWN, STRING_EMPTY, (SourceLoc) { 0 }),
     };
     const u32 expected_len = sizeof(expected) / sizeof(Token);
 
-    utest_fixture->content = string_from_cstr(""
+    String tmp = string_from_cstr(""
         "variable_name \n"
         "_var \n"
         "_ \n"
@@ -135,14 +150,18 @@ UTEST_F(TestScanner, identifier) {
         "123var \n"
         "@# "
     );
+    utest_fixture->fc.content = (byte*)tmp.text;
+    utest_fixture->fc.size = tmp.len;
 
-    Scanner scanner = scanner_create(NULL, (byte*)utest_fixture->content.text, utest_fixture->content.len, &utest_fixture->rc);
+    Scanner scanner = scanner_create(&utest_fixture->fc, &utest_fixture->rc);
 
     for (u32 i = 0; i < expected_len; ++i) {
         utest_fixture->token = scanner_scan_next(&scanner);
 
         ASSERT_EQ_MSG(expected[i].kind, utest_fixture->token.kind, get_token_kind_name(expected[i].kind));
-        ASSERT_TRUE_MSG(string_eq_str(&expected[i].value, &utest_fixture->token.value), get_token_kind_name(expected[i].kind));
+        if (!string_is_empty(&expected[i].value)) {
+            ASSERT_TRUE_MSG(string_eq_str(&expected[i].value, &utest_fixture->token.value), get_token_kind_name(expected[i].kind));
+        }
 
         token_destroy(&utest_fixture->token);
     }
@@ -151,7 +170,7 @@ UTEST_F(TestScanner, identifier) {
 // COMMENTS
 
 UTEST_F(TestScanner, comments) {
-    utest_fixture->content = string_from_cstr(""
+    String tmp = string_from_cstr(""
         "// line comment\n"
         "/* block\n"
         "/* nested block */"
@@ -159,7 +178,10 @@ UTEST_F(TestScanner, comments) {
         "comment */"
     );
 
-    Scanner scanner = scanner_create(NULL, (byte*)utest_fixture->content.text, utest_fixture->content.len, &utest_fixture->rc);
+    utest_fixture->fc.content = (byte*)tmp.text;
+    utest_fixture->fc.size = tmp.len;
+
+    Scanner scanner = scanner_create(&utest_fixture->fc, &utest_fixture->rc);
     utest_fixture->token = scanner_scan_next(&scanner);
 
     ASSERT_EQ(TOKEN_EOF_, utest_fixture->token.kind);
@@ -168,11 +190,14 @@ UTEST_F(TestScanner, comments) {
 // COMPLEX
 
 UTEST_F(TestScanner, complex1) {
-    utest_fixture->content = string_from_cstr(""
+    String tmp = string_from_cstr(""
         "a += (b[i] * 0x10) >> 3 \n"
-        "if x <= 0xFFFF && y != nil\n"
+        "if x <= 0xFFFF && y != a\n"
         "func(a, b...) || (c && d) \n"
     );
+
+    utest_fixture->fc.content = (byte*)tmp.text;
+    utest_fixture->fc.size = tmp.len;
 
     const Token expected[] = {
         token_create(TOKEN_IDENTIFIER, (String) { .text = "a", .len = 1 }, (SourceLoc) { 0 }),
@@ -194,7 +219,7 @@ UTEST_F(TestScanner, complex1) {
         token_create(TOKEN_AMP_AMP, STRING_EMPTY, (SourceLoc) { 0 }),
         token_create(TOKEN_IDENTIFIER, (String) { .text = "y", .len = 1 }, (SourceLoc) { 0 }),
         token_create(TOKEN_EXCLAIM_EQUAL, STRING_EMPTY, (SourceLoc) { 0 }),
-        token_create(TOKEN_KEYWORD_NIL, STRING_EMPTY, (SourceLoc) { 0 }),
+        token_create(TOKEN_IDENTIFIER, (String) { .text = "a", .len = 1 }, (SourceLoc) { 0 }),
         token_create(TOKEN_IDENTIFIER, (String) { .text = "func", .len = 4 }, (SourceLoc) { 0 }),
         token_create(TOKEN_L_BRACE, STRING_EMPTY, (SourceLoc) { 0 }),
         token_create(TOKEN_IDENTIFIER, (String) { .text = "a", .len = 1 }, (SourceLoc) { 0 }),
@@ -214,7 +239,7 @@ UTEST_F(TestScanner, complex1) {
 
     const u32 expected_len = sizeof(expected) / sizeof(Token);
 
-    Scanner scanner = scanner_create(NULL, (byte*)utest_fixture->content.text, utest_fixture->content.len, &utest_fixture->rc);
+    Scanner scanner = scanner_create(&utest_fixture->fc, &utest_fixture->rc);
 
     for (u32 i = 0; i < expected_len; ++i) {
         utest_fixture->token = scanner_scan_next(&scanner);

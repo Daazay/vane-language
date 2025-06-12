@@ -1,6 +1,7 @@
 #include "vane/scanner/scanner.h"
 
 #include "vane/utils/string_utils.h"
+#include "vane/utils/string_builder.h"
 
 #pragma region UTILITIES
 
@@ -37,10 +38,8 @@ static inline void scanner_advance_char(Scanner* scanner) {
 #pragma region DIAGNOSTIC
 
 #define TRACE(FORMAT, ...) do { \
-    if (scanner->rc != NULL) { \
-        String msg = string_from_fmt(FORMAT, ##__VA_ARGS__); \
-        report_collector_append_report_trace(scanner->rc, msg, scanner->loc); \
-    } \
+    String _msg = string_from_fmt(FORMAT, ##__VA_ARGS__); \
+    report_collector_append_report_trace(scanner->rc, _msg, scanner->loc); \
 } while (false)
 
 #pragma endregion
@@ -51,7 +50,7 @@ static inline void scanner_skip_whitespaces(Scanner* scanner) {
     char ch = EOF_CHAR;
     while ((ch = scanner_curr_char(scanner)) != EOF_CHAR) {
         if (!is_space(ch)) {
-            break;
+            return;
         }
         scanner_advance_char(scanner);
     }
@@ -68,6 +67,8 @@ static inline void scanner_skip_comment_line(Scanner* scanner) {
 }
 
 static inline bool scanner_skip_comment_block(Scanner* scanner) {
+    scanner_advance_char(scanner);
+
     char ch = EOF_CHAR;
     char prev_ch = EOF_CHAR;
 
@@ -76,7 +77,6 @@ static inline bool scanner_skip_comment_block(Scanner* scanner) {
     while ((ch = scanner_curr_char(scanner)) != EOF_CHAR) {
         if (prev_ch == '/' && ch == '*') {
             // nested comment block
-            scanner_advance_char(scanner);
             if (!scanner_skip_comment_block(scanner)) {
                 good = false;
                 break;
@@ -92,31 +92,29 @@ static inline bool scanner_skip_comment_block(Scanner* scanner) {
     }
 
     if (!good) {
-        TRACE("unterminated comment block");
+        TRACE("Unterminated comment block");
     }
 
     return good;
 }
 
 static inline Token scanner_parse_string_literal(Scanner* scanner) {
-    // '"' - basic
-    // '`' - raw
-    const char enclosing_char = scanner_curr_char(scanner);
     scanner_advance_char(scanner);
 
     char ch = EOF_CHAR;
     char prev_ch = EOF_CHAR;
 
-    const u64 prev_pos = scanner->pos;
+    u64 prev_pos = scanner->pos;
     bool good = false;
 
     while ((ch = scanner_curr_char(scanner)) != EOF_CHAR) {
-        if (prev_ch != '\\' && ch == enclosing_char) {
+        if (prev_ch != '\\' && ch == '\"') {
             good = true;
             scanner_advance_char(scanner);
             break;
         }
-        else if (prev_ch != '\\' && is_vspace(ch) && enclosing_char == '"') {
+        else if (is_vspace(ch)) {
+            good = false;
             break;
         }
         scanner_advance_char(scanner);
@@ -124,7 +122,7 @@ static inline Token scanner_parse_string_literal(Scanner* scanner) {
     }
 
     if (!good) {
-        TRACE("unterminated string literal");
+        TRACE("Unterminated string literal");
         return token_create(TOKEN_INVALID, STRING_EMPTY, scanner->loc);
     }
 
@@ -138,16 +136,16 @@ static inline Token scanner_parse_char_literal(Scanner* scanner) {
     char ch = EOF_CHAR;
     char prev_ch = EOF_CHAR;
 
-    const u64 prev_pos = scanner->pos;
-    bool good = false;
+    u64 prev_pos = scanner->pos;
+    bool good = true;
 
     while ((ch = scanner_curr_char(scanner)) != EOF_CHAR) {
         if (prev_ch != '\\' && ch == '\'') {
-            good = true;
             scanner_advance_char(scanner);
             break;
         }
-        else if (prev_ch != '\\' && is_vspace(ch)) {
+        else if (is_vspace(ch)) {
+            good = false;
             break;
         }
         scanner_advance_char(scanner);
@@ -155,24 +153,25 @@ static inline Token scanner_parse_char_literal(Scanner* scanner) {
     }
 
     if (!good) {
-        TRACE("unterminated char literal");
+        TRACE("Unterminated char literal");
         return token_create(TOKEN_INVALID, STRING_EMPTY, scanner->loc);
     }
 
-    const u64 lit_len = scanner->pos - prev_pos - 1;
 
-    if (lit_len < 1) {
-        TRACE("char literal has no body");
+    const u64 len = scanner->pos - prev_pos - 1;
+    if (len < 1) {
+        TRACE("Char literal is empty");
+        return token_create(TOKEN_INVALID, STRING_EMPTY, scanner->loc);
+    }
+    else if ((scanner->content.text[prev_pos] == '\\' && len > 2) || (scanner->content.text[prev_pos] != '\\' && len > 1)) {
+        TRACE("Char literal `%.*s` contains too many characters",
+            (i32)len,
+            scanner->content.text + prev_pos
+        );
         return token_create(TOKEN_INVALID, STRING_EMPTY, scanner->loc);
     }
 
-    String value = string_substr(&scanner->content, prev_pos, lit_len);
-
-    if (lit_len > 1) {
-        TRACE("char literal `%.*s` contains too many characters", (i32)value.len, value.text);
-        return token_create(TOKEN_INVALID, value, scanner->loc);
-    }
-
+    String value = string_substr(&scanner->content, prev_pos, len);
     return token_create(TOKEN_LITERAL_CHAR, value, scanner->loc);
 }
 
@@ -181,14 +180,16 @@ static inline Token scanner_parse_hex_literal(Scanner* scanner) {
     char prev_ch = EOF_CHAR;
 
     bool good = true;
-    const u64 prev_pos = scanner->pos - 2; // include '0x'
+    const u64 prev_pos = scanner->pos - 2; // include prefix '0x' or '0X'
 
     while ((ch = scanner_curr_char(scanner)) != EOF_CHAR) {
-        if (is_space(ch) || is_punc(ch) && ch != '_') {
+        if (is_space(ch) || (is_punc(ch) && ch != '_')) {
             break;
         }
-        else if (ch == '_' && prev_ch) {
-            good = false;
+        else if (ch == '_') {
+            if (prev_ch == '_') {
+                good = false;
+            }
         }
         else if (!is_xdigit(ch)) {
             good = false;
@@ -197,20 +198,21 @@ static inline Token scanner_parse_hex_literal(Scanner* scanner) {
         prev_ch = ch;
     }
 
-    const u64 lit_len = scanner->pos - prev_pos;
+    const u64 len = scanner->pos - prev_pos;
 
-    if (lit_len == 2) {
-        TRACE("hex literal has no body");
+    if (len == 2) {
+        TRACE("Hex literal has no body");
+        return token_create(TOKEN_INVALID, STRING_EMPTY, scanner->loc);
+    }
+    else if (!good || prev_ch == '_') {
+        TRACE("Invalid hex literal `%.*s`",
+            (i32)len,
+            scanner->content.text + prev_pos
+        );
         return token_create(TOKEN_INVALID, STRING_EMPTY, scanner->loc);
     }
 
-    String value = string_substr(&scanner->content, prev_pos, lit_len);
-
-    if (!good || prev_ch == '_') {
-        TRACE("invalid hex literal `%.*s`", (i32)value.len, value.text);
-        return token_create(TOKEN_INVALID, value, scanner->loc);
-    }
-
+    String value = string_substr(&scanner->content, prev_pos, len);
     return token_create(TOKEN_LITERAL_HEX, value, scanner->loc);
 }
 
@@ -219,14 +221,16 @@ static inline Token scanner_parse_bin_literal(Scanner* scanner) {
     char prev_ch = EOF_CHAR;
 
     bool good = true;
-    const u64 prev_pos = scanner->pos - 2; // include '0b'
+    const u64 prev_pos = scanner->pos - 2; // include prefix '0b' or '0B'
 
     while ((ch = scanner_curr_char(scanner)) != EOF_CHAR) {
-        if (is_space(ch) || is_punc(ch) && ch != '_') {
+        if (is_space(ch) || (is_punc(ch) && ch != '_')) {
             break;
         }
-        else if (ch == '_' && prev_ch) {
-            good = false;
+        else if (ch == '_') {
+            if (prev_ch == '_') {
+                good = false;
+            }
         }
         else if (!is_bdigit(ch)) {
             good = false;
@@ -235,30 +239,66 @@ static inline Token scanner_parse_bin_literal(Scanner* scanner) {
         prev_ch = ch;
     }
 
-    const u64 lit_len = scanner->pos - prev_pos;
+    const u64 len = scanner->pos - prev_pos;
 
-    if (lit_len == 2) {
-        TRACE("bin literal has no body");
+    if (len == 2) {
+        TRACE("Bin literal has no body");
+        return token_create(TOKEN_INVALID, STRING_EMPTY, scanner->loc);
+    }
+    else if (!good || prev_ch == '_') {
+        TRACE("Invalid bin literal `%.*s`",
+            (i32)len,
+            scanner->content.text + prev_pos
+        );
         return token_create(TOKEN_INVALID, STRING_EMPTY, scanner->loc);
     }
 
-    String value = string_substr(&scanner->content, prev_pos, lit_len);
+    String value = string_substr(&scanner->content, prev_pos, len);
+    return token_create(TOKEN_LITERAL_BIN, value, scanner->loc);
+}
 
-    if (!good || prev_ch == '_') {
-        TRACE("invalid bin literal `%.*s`", (i32)value.len, value.text);
-        return token_create(TOKEN_INVALID, value, scanner->loc);
+static inline Token scanner_parse_dec_literal(Scanner* scanner) {
+    char ch = EOF_CHAR;
+    char prev_ch = EOF_CHAR;
+
+    bool good = true;
+    const u64 prev_pos = scanner->pos - 1; // include char before
+
+    while ((ch = scanner_curr_char(scanner)) != EOF_CHAR) {
+        if (is_space(ch) || (is_punc(ch) && ch != '_')) {
+            break;
+        }
+        else if (ch == '_') {
+            if (prev_ch == '_') {
+                good = false;
+            }
+        }
+        else if (!is_digit(ch)) {
+            good = false;
+        }
+        scanner_advance_char(scanner);
+        prev_ch = ch;
     }
 
-    return token_create(TOKEN_LITERAL_BIN, value, scanner->loc);
+    const u64 len = scanner->pos - prev_pos;
+
+    if (!good || prev_ch == '_') {
+        TRACE("Invalid dec literal `%.*s`",
+            (i32)len,
+            scanner->content.text + prev_pos
+        );
+        return token_create(TOKEN_INVALID, STRING_EMPTY, scanner->loc);
+    }
+
+    String value = string_substr(&scanner->content, prev_pos, len);
+    return token_create(TOKEN_LITERAL_DEC, value, scanner->loc);
 }
 
 static inline Token scanner_parse_number_literal(Scanner* scanner) {
     char ch = scanner_curr_char(scanner);
-
-    const u64 prev_pos = scanner->pos;
+    scanner_advance_char(scanner);
 
     if (ch == '0') {
-        scanner_advance_char(scanner);
         ch = scanner_curr_char(scanner);
 
         // HEX LITERAL
@@ -273,31 +313,7 @@ static inline Token scanner_parse_number_literal(Scanner* scanner) {
         }
     }
 
-    bool good = true;
-    char prev_ch = EOF_CHAR;
-
-    while ((ch = scanner_curr_char(scanner)) != EOF_CHAR) {
-        if (is_space(ch) || is_punc(ch) && ch != '_') {
-            break;
-        }
-        else if (ch == '_' && prev_ch == '_') {
-            good = false;
-        }
-        else if (!is_digit(ch)) {
-            good = false;
-        }
-        scanner_advance_char(scanner);
-        prev_ch = ch;
-    }
-
-    String value = string_substr(&scanner->content, prev_pos, scanner->pos - prev_pos);
-
-    if (!good || prev_ch == '_') {
-        TRACE("invalid dec literal `%.*s`", (i32)value.len, value.text);
-        return token_create(TOKEN_INVALID, value, scanner->loc);
-    }
-
-    return token_create(TOKEN_LITERAL_DEC, value, scanner->loc);
+    return scanner_parse_dec_literal(scanner);
 }
 
 static inline Token scanner_parse_identifier_or_keyword(Scanner* scanner) {
@@ -371,23 +387,19 @@ return token_create(KIND1, STRING_EMPTY, scanner->loc)
 
 #pragma endregion
 
-Scanner scanner_create(const String* path, byte* data, u64 size, ReportCollector* rc) {
+Scanner scanner_create(const FileContent* fc, ReportCollector* rc) {
+    assert(fc != NULL && rc != NULL);
+
     return (Scanner) {
-        .content = (String){
-            .text = (char*)data,
-            .len = size,
-        },
+        .content.text = (char*)fc->content,
+        .content.len  = fc->size,
         .pos = 0,
         .loc = {
-            .path = path,
-            .begin = {
-                .line = SCANNER_DEFAULT_LINE_POS,
-                .column = SCANNER_DEFAULT_COLUMN_POS,
-            },
-            .end = {
-                .line = SCANNER_DEFAULT_LINE_POS,
-                .column = SCANNER_DEFAULT_COLUMN_POS,
-            }
+            .path         = fc->path,
+            .begin.line   = SCANNER_DEFAULT_LINE_POS,
+            .begin.column = SCANNER_DEFAULT_COLUMN_POS,
+            .end.line     = SCANNER_DEFAULT_LINE_POS,
+            .end.column   = SCANNER_DEFAULT_COLUMN_POS,
         },
         .rc = rc,
     };
@@ -395,7 +407,7 @@ Scanner scanner_create(const String* path, byte* data, u64 size, ReportCollector
 
 void scanner_destroy(Scanner* scanner) {
     (void)scanner;
-    // NOTHING
+    /* DO NOTHING */
 }
 
 Token scanner_scan_next(Scanner* scanner) {
@@ -405,31 +417,28 @@ Token scanner_scan_next(Scanner* scanner) {
     scanner->loc.begin = scanner->loc.end;
 
     char ch = scanner_curr_char(scanner);
-
     switch (ch) {
-        CASE_C1('\0', TOKEN_EOF_);
-        CASE_C1('(', TOKEN_L_BRACE);
-        CASE_C1(')', TOKEN_R_BRACE);
-        CASE_C1('{', TOKEN_L_CURLY);
-        CASE_C1('}', TOKEN_R_CURLY);
-        CASE_C1('[', TOKEN_L_BRACKET);
-        CASE_C1(']', TOKEN_R_BRACKET);
-        CASE_C1('.', TOKEN_DOT);
-        CASE_C1(',', TOKEN_COMMA);
-        CASE_C1(':', TOKEN_COLON);
-        CASE_C1(';', TOKEN_SEMICOLON);
-        CASE_C1C2('+', '=', '+', TOKEN_PLUS, TOKEN_PLUS_EQUAL, TOKEN_PLUS_PLUS);
-        CASE_C1C2('-', '=', '-', TOKEN_MINUS, TOKEN_MINUS_EQUAL, TOKEN_MINUS_MINUS);
-        CASE_C1C1('*', '=', TOKEN_STAR, TOKEN_STAR_EQUAL);
+    CASE_C1('\0', TOKEN_EOF_);
+    CASE_C1('(', TOKEN_L_BRACE);
+    CASE_C1(')', TOKEN_R_BRACE);
+    CASE_C1('[', TOKEN_L_BRACKET);
+    CASE_C1(']', TOKEN_R_BRACKET);
+    CASE_C1('.', TOKEN_DOT);
+    CASE_C1(',', TOKEN_COMMA);
+    CASE_C1(':', TOKEN_COLON);
+    CASE_C1(';', TOKEN_SEMICOLON);
+    CASE_C1C2('+', '=', '+', TOKEN_PLUS, TOKEN_PLUS_EQUAL, TOKEN_PLUS_PLUS);
+    CASE_C1C2('-', '=', '-', TOKEN_MINUS, TOKEN_MINUS_EQUAL, TOKEN_MINUS_MINUS);
+    CASE_C1C1('*', '=', TOKEN_STAR, TOKEN_STAR_EQUAL);
     case '/':
         scanner_advance_char(scanner);
         ch = scanner_curr_char(scanner);
+
         switch (ch) {
         case '/':
             scanner_skip_comment_line(scanner);
             return scanner_scan_next(scanner);
         case '*':
-            scanner_advance_char(scanner);
             if (!scanner_skip_comment_block(scanner)) {
                 return token_create(TOKEN_INVALID, STRING_EMPTY, scanner->loc);
             }
@@ -440,16 +449,15 @@ Token scanner_scan_next(Scanner* scanner) {
         default:
             return token_create(TOKEN_SLASH, STRING_EMPTY, scanner->loc);
         }
-        CASE_C1C1('%', '=', TOKEN_PERCENT, TOKEN_PERCENT_EQUAL);
-        CASE_C1C1('^', '=', TOKEN_CARET, TOKEN_CARET_EQUAL);
-        CASE_C1C2('&', '=', '&', TOKEN_AMP, TOKEN_AMP_EQUAL, TOKEN_AMP_AMP);
-        CASE_C1C2('|', '=', '|', TOKEN_PIPE, TOKEN_PIPE_EQUAL, TOKEN_PIPE_PIPE);
-        CASE_C1('~', TOKEN_TILDE);
-        CASE_C1C1('=', '=', TOKEN_EQUAL, TOKEN_EQUAL_EQUAL);
-        CASE_C1C1('!', '=', TOKEN_EXCLAIM, TOKEN_EXCLAIM_EQUAL);
-        CASE_C1C2C1('>', '=', '>', '=', TOKEN_GREATER, TOKEN_GREATER_EQUAL, TOKEN_GREATER_GREATER, TOKEN_GREATER_GREATER_EQUAL);
-        CASE_C1C2C1('<', '=', '<', '=', TOKEN_LESS, TOKEN_LESS_EQUAL, TOKEN_LESS_LESS, TOKEN_LESS_LESS_EQUAL);
-    case '`':
+    CASE_C1C1('%', '=', TOKEN_PERCENT, TOKEN_PERCENT_EQUAL);
+    CASE_C1('^', TOKEN_CARET);
+    CASE_C1C2('&', '=', '&', TOKEN_AMP, TOKEN_AMP_EQUAL, TOKEN_AMP_AMP);
+    CASE_C1C2('|', '=', '|', TOKEN_PIPE, TOKEN_PIPE_EQUAL, TOKEN_PIPE_PIPE);
+    CASE_C1('~', TOKEN_TILDE);
+    CASE_C1C1('=', '=', TOKEN_EQUAL, TOKEN_EQUAL_EQUAL);
+    CASE_C1C1('!', '=', TOKEN_EXCLAIM, TOKEN_EXCLAIM_EQUAL);
+    CASE_C1C2C1('>', '=', '>', '=', TOKEN_GREATER, TOKEN_GREATER_EQUAL, TOKEN_GREATER_GREATER, TOKEN_GREATER_GREATER_EQUAL);
+    CASE_C1C2C1('<', '=', '<', '=', TOKEN_LESS, TOKEN_LESS_EQUAL, TOKEN_LESS_LESS, TOKEN_LESS_LESS_EQUAL);
     case '"':  return scanner_parse_string_literal(scanner);
     case '\'': return scanner_parse_char_literal(scanner);
     default:
@@ -471,9 +479,12 @@ Token scanner_scan_next(Scanner* scanner) {
             scanner_advance_char(scanner);
         }
 
-        String value = string_substr(&scanner->content, prev_pos, scanner->pos - prev_pos);
+        const u64 len = scanner->pos - prev_pos;
 
-        TRACE("unknown token `%.*s`", (i32)value.len, value.text);
-        return token_create(TOKEN_UNKNOWN, value, scanner->loc);
+        TRACE("Unknown token `%.*s`",
+            (i32)len,
+            scanner->content.text + prev_pos
+        );
+        return token_create(TOKEN_UNKNOWN, STRING_EMPTY, scanner->loc);
     }
 }

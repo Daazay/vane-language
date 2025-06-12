@@ -25,6 +25,7 @@ enum OpPrecedence {
     OP_PREC_ADDITIVE,
     OP_PREC_MULTIPLICATIVE,
     OP_PREC_CALL,
+    OP_PREC_INDEX,
     OP_PREC_MEMBER,
     OP_PREC_UNARY,
 };
@@ -46,9 +47,11 @@ bool is_token_kind_an_op(TokenKind kind);
 
 bool is_token_kind_a_binop(TokenKind kind);
 
+bool is_token_kind_an_unop(TokenKind kind);
+
 bool is_token_kind_a_prefix_unop(TokenKind kind);
 
-bool is_token_kind_an_postfix_unop(TokenKind kind);
+bool is_token_kind_a_postfix_unop(TokenKind kind);
 
 bool is_token_kind_a_keyword(TokenKind kind);
 
@@ -58,6 +61,6 @@ bool is_token_kind_a_builtin_type(TokenKind kind);
 
 bool is_token_kind_a_literal(TokenKind kind);
 
-OpPrecedence get_op_precedence(TokenKind kind);
+OpPrecedence get_token_kind_precedence(TokenKind kind);
 
 OpAssociativity get_op_associativity(OpPrecedence prec);

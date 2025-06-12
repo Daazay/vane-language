@@ -1,8 +1,10 @@
 #include "vane/scanner/token_stream.h"
 
-#pragma region UTILITIES
+#include "vane/utils/string_builder.h"
 
-static inline  void ts_parse_next(TokenStream* ts) {
+#define TOKEN_STREAM_BEGIN_IDX -1
+
+static inline  void token_stream_parse_next(TokenStream* ts) {
     if (!ts->done) {
         Token token = scanner_scan_next(&ts->scanner);
         vector_push_back(&ts->tokens, &token);
@@ -13,23 +15,22 @@ static inline  void ts_parse_next(TokenStream* ts) {
     }
 }
 
-#pragma endregion
+TokenStream token_stream_create(u32 init_tokens_size, const FileContent* fc, ReportCollector* rc) {
+    assert(fc != NULL && rc != NULL);
 
-
-TokenStream ts_create(u32 init_size, const String* path, byte* data, u64 size, ReportCollector* rc) {
-    u32 cap = (init_size > 0)
-        ? init_size
+    u32 cap = (init_tokens_size > 0)
+        ? init_tokens_size
         : TOKEN_STREAM_DEFAULT_SIZE;
 
     return (TokenStream) {
-        .scanner = scanner_create(path, data, size, rc),
-        .tokens = vector_create(cap, VECTOR_ITEM_SPECS(Token, &token_destroy)),
-        .idx = -1,
-        .done = false,
+        .scanner = scanner_create(fc, rc),
+        .tokens  = vector_create(cap, VECTOR_ITEM_SPECS(Token, &token_destroy)),
+        .idx     = TOKEN_STREAM_BEGIN_IDX,
+        .done    = false,
     };
 }
 
-void ts_destroy(TokenStream* ts) {
+void token_stream_destroy(TokenStream* ts) {
     if (ts == NULL) {
         return;
     }
@@ -38,7 +39,7 @@ void ts_destroy(TokenStream* ts) {
     scanner_destroy(&ts->scanner);
 }
 
-bool ts_is_end(const TokenStream* ts) {
+bool token_stream_is_end(const TokenStream* ts) {
     assert(ts != NULL);
 
     if (ts->done && (ts->idx + 1 == (i32)ts->tokens.size)) {
@@ -47,57 +48,154 @@ bool ts_is_end(const TokenStream* ts) {
     return false;
 }
 
-const Token* ts_get_curr(TokenStream* ts) {
+void token_stream_move_forward(TokenStream* ts) {
+    assert(ts != NULL);
+
+    if (ts->idx + 1 == (i32)ts->tokens.size) {
+        assert(!ts->done && "the end of token stream reached");
+        token_stream_parse_next(ts);
+    }
+    ts->idx++;
+}
+
+void token_stream_move_back(TokenStream* ts) {
+    assert(ts != NULL);
+
+    assert(ts->idx != TOKEN_STREAM_BEGIN_IDX && "index of token stream must be >= -1");
+    ts->idx--;
+}
+
+const Token* token_stream_get_curr(TokenStream* ts) {
     assert(ts != NULL);
 
     if (!ts->done && (ts->idx + 1 == (i32)ts->tokens.size)) {
-        ts_parse_next(ts);
+        token_stream_parse_next(ts);
     }
 
     if (ts->idx < 0) {
         return NULL;
     }
+
     return vector_at(&ts->tokens, ts->idx);
 }
 
-const Token* ts_peek_next(TokenStream* ts) {
+const Token* token_stream_peek_next(TokenStream* ts) {
     assert(ts != NULL);
 
     if (ts->idx + 1 == (i32)ts->tokens.size) {
         if (ts->done) {
             return NULL;
         }
-        ts_parse_next(ts);
+        token_stream_parse_next(ts);
     }
     return vector_at(&ts->tokens, ts->idx + 1);
 }
 
-const Token* ts_advance(TokenStream* ts) {
+const Token* token_stream_advance(TokenStream* ts) {
     assert(ts != NULL);
 
-    const Token* token = ts_peek_next(ts);
-    ts_move_forward(ts);
+    const Token* token = token_stream_peek_next(ts);
+    token_stream_move_forward(ts);
 
     return token;
 }
 
-void ts_move_forward(TokenStream* ts) {
+const Token* token_stream_expect(TokenStream* ts, TokenKind expected) {
     assert(ts != NULL);
 
-    if (ts->idx + 1 == (i32)ts->tokens.size) {
-        if (ts->done) {
-            return;
-        }
-        ts_parse_next(ts);
+    const Token* token = token_stream_peek_next(ts);
+    if (token->kind == expected) {
+        return token;
     }
-    ts->idx++;
+
+    String msg = string_from_fmt("Expected `%s`, but got `%s`",
+        get_token_kind_value(expected),
+        get_token_kind_value(token->kind)
+    );
+    report_collector_append_report_trace(ts->scanner.rc, msg, token->loc);
+
+    return token;
 }
 
-void ts_move_back(TokenStream* ts) {
+const Token* token_stream_expect_any(TokenStream* ts, TokenKind expected[], u32 expected_count) {
     assert(ts != NULL);
 
-    if (ts->idx == -1) {
-        return;
+    const Token* token = token_stream_peek_next(ts);
+    for (u32 i = 0; i < expected_count; ++i) {
+        if (token->kind == expected[i]) {
+            return token;
+        }
     }
-    ts->idx--;
+
+    StringBuilder sb = sb_create(32);
+
+    for (u32 i = 0; i < expected_count; ++i) {
+        sb_append_format(&sb, "`%s`", get_token_kind_value(expected[i]));
+        if (i + 1 < expected_count) {
+            sb_append_cstr(&sb, ", ");
+        }
+    }
+
+    String msg = string_from_fmt("Expected any [%s], but got `%s`",
+        (i32)sb.len, sb.buf,
+        get_token_kind_value(token->kind)
+    );
+    report_collector_append_report_trace(ts->scanner.rc, msg, token->loc);
+
+    sb_destroy(&sb);
+
+    return token;
+}
+
+const Token* token_stream_advance_if(TokenStream* ts, TokenKind expected) {
+    assert(ts != NULL);
+
+    const Token* token = token_stream_peek_next(ts);
+    if (token->kind == expected) {
+        token_stream_move_forward(ts);
+        // why token_stream_get_curr instead of just returning the token?
+        // token_stream_move_forward can cause vector reallcation which would cause that pointer would reference to invalid memory.
+        return token_stream_get_curr(ts);
+    }
+
+    String msg = string_from_fmt("Expected `%s`, but got `%s`",
+        get_token_kind_value(expected),
+        get_token_kind_value(token->kind)
+    );
+    report_collector_append_report_trace(ts->scanner.rc, msg, token->loc);
+
+    return token;
+}
+
+const Token* token_stream_advance_if_any(TokenStream* ts, TokenKind expected[], u32 expected_count) {
+    assert(ts != NULL);
+
+    const Token* token = token_stream_peek_next(ts);
+    for (u32 i = 0; i < expected_count; ++i) {
+        if (token->kind == expected[i]) {
+            token_stream_move_forward(ts);
+            // why token_stream_get_curr instead of just returning the token?
+            // token_stream_move_forward can cause vector reallcation which would cause that pointer would reference to invalid memory.
+            return token_stream_get_curr(ts);
+        }
+    }
+
+    StringBuilder sb = sb_create(32);
+
+    for (u32 i = 0; i < expected_count; ++i) {
+        sb_append_format(&sb, "`%s`", get_token_kind_value(expected[i]));
+        if (i + 1 < expected_count) {
+            sb_append_cstr(&sb, ", ");
+        }
+    }
+
+    String msg = string_from_fmt("Expected any [%s], but got `%s`",
+        (i32)sb.len, sb.buf,
+        get_token_kind_value(token->kind)
+    );
+    report_collector_append_report_trace(ts->scanner.rc, msg, token->loc);
+
+    sb_destroy(&sb);
+
+    return token;
 }

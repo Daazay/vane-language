@@ -4,59 +4,56 @@
 
 struct TestFileUtils {
     String path;
-    struct {
-        byte* data;
-        u64 size;
-    } content;
+
+    FileContent fc;
 };
 
 UTEST_F_SETUP(TestFileUtils) {
     utest_fixture->path = STRING_EMPTY;
 
-    utest_fixture->content.data = NULL;
-    utest_fixture->content.size = 0;
+    utest_fixture->fc = (FileContent){ 0 };
 }
 
 UTEST_F_TEARDOWN(TestFileUtils) {
     string_destroy(&utest_fixture->path);
 
-    free(utest_fixture->content.data);
+    file_content_destroy(&utest_fixture->fc);
 }
 
-// load file
+// load file content
 
-UTEST_F(TestFileUtils, load_file_empty_path) {
+UTEST_F(TestFileUtils, file_content_load_empty_path) {
     utest_fixture->path = STRING_EMPTY;
 
-    IOStatus status = file_load(&utest_fixture->path, &utest_fixture->content.data, &utest_fixture->content.size);
+    IOStatus status = file_content_load(&utest_fixture->fc, &utest_fixture->path);
     ASSERT_EQ(IO_STATUS_ERR_INVALID_PATH, status);
 }
 
-UTEST_F(TestFileUtils, load_file_not_exist) {
+UTEST_F(TestFileUtils, file_content_load_not_exist) {
     utest_fixture->path = string_from_cstr("./not_exist");
 
-    IOStatus status = file_load(&utest_fixture->path, &utest_fixture->content.data, &utest_fixture->content.size);
+    IOStatus status = file_content_load(&utest_fixture->fc, &utest_fixture->path);
     ASSERT_EQ(IO_STATUS_ERR_FILE_NOT_FOUND, status);
 }
 
-UTEST_F(TestFileUtils, load_file_dir) {
+UTEST_F(TestFileUtils, file_content_load_dir) {
     utest_fixture->path = string_from_cstr("./projects");
 
-    IOStatus status = file_load(&utest_fixture->path, &utest_fixture->content.data, &utest_fixture->content.size);
+    IOStatus status = file_content_load(&utest_fixture->fc, &utest_fixture->path);
     ASSERT_EQ(IO_STATUS_ERR_FILE_NOT_FOUND, status);
 }
 
-UTEST_F(TestFileUtils, load_file_empty) {
+UTEST_F(TestFileUtils, file_content_load_empty) {
     utest_fixture->path = string_from_cstr("./projects/tests/resources/utils/empty_file");
 
-    IOStatus status = file_load(&utest_fixture->path, &utest_fixture->content.data, &utest_fixture->content.size);
+    IOStatus status = file_content_load(&utest_fixture->fc, &utest_fixture->path);
     ASSERT_EQ(IO_STATUS_ERR_FILE_EMPTY, status);
 }
 
-UTEST_F(TestFileUtils, load_file) {
+UTEST_F(TestFileUtils, file_content_load) {
     utest_fixture->path = string_from_cstr("./projects/tests/resources/utils/file");
 
-    IOStatus status = file_load(&utest_fixture->path, &utest_fixture->content.data, &utest_fixture->content.size);
+    IOStatus status = file_content_load(&utest_fixture->fc, &utest_fixture->path);
     ASSERT_EQ(IO_STATUS_OK, status);
 }
 

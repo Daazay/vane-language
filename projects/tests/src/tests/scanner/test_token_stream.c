@@ -3,27 +3,31 @@
 #include <vane/scanner/token_stream.h>
 
 struct TestTokenStream {
-    String content;
+    ReportCollector rc;
+    FileContent fc;
     TokenStream ts;
 };
 
 UTEST_F_SETUP(TestTokenStream) {
-    utest_fixture->content = STRING_EMPTY;
+    utest_fixture->rc = (ReportCollector){ 0 };
+    utest_fixture->fc = (FileContent){ 0 };
     utest_fixture->ts = (TokenStream){ 0 };
 }
 
 UTEST_F_TEARDOWN(TestTokenStream) {
-    string_destroy(&utest_fixture->content);
-    ts_destroy(&utest_fixture->ts);
+    file_content_destroy(&utest_fixture->fc);
+    token_stream_destroy(&utest_fixture->ts);
 }
 
 // get curr
 
 UTEST_F(TestTokenStream, get_curr_empty_source) {
-    utest_fixture->content = STRING_EMPTY;
-    utest_fixture->ts = ts_create(0, NULL, (byte*)utest_fixture->content.text, utest_fixture->content.len, NULL);
+    String tmp = STRING_EMPTY;
+    utest_fixture->fc.content = (byte*)tmp.text;
+    utest_fixture->fc.size = tmp.len;
+    utest_fixture->ts = token_stream_create(0, &utest_fixture->fc, &utest_fixture->rc);
 
-    const Token* token = ts_get_curr(&utest_fixture->ts);
+    const Token* token = token_stream_get_curr(&utest_fixture->ts);
 
     ASSERT_EQ(NULL, token);
 
@@ -33,10 +37,12 @@ UTEST_F(TestTokenStream, get_curr_empty_source) {
 }
 
 UTEST_F(TestTokenStream, get_curr) {
-    utest_fixture->content = string_from_cstr("+");
-    utest_fixture->ts = ts_create(0, NULL, (byte*)utest_fixture->content.text, utest_fixture->content.len, NULL);
+    String tmp = string_from_cstr("+");
+    utest_fixture->fc.content = (byte*)tmp.text;
+    utest_fixture->fc.size = tmp.len;
+    utest_fixture->ts = token_stream_create(0, &utest_fixture->fc, &utest_fixture->rc);
 
-    const Token* token = ts_get_curr(&utest_fixture->ts);
+    const Token* token = token_stream_get_curr(&utest_fixture->ts);
 
     ASSERT_EQ(NULL, token);
 
@@ -48,10 +54,12 @@ UTEST_F(TestTokenStream, get_curr) {
 // peek next
 
 UTEST_F(TestTokenStream, peek_next_empty_source) {
-    utest_fixture->content = STRING_EMPTY;
-    utest_fixture->ts = ts_create(0, NULL, (byte*)utest_fixture->content.text, utest_fixture->content.len, NULL);
+    String tmp = STRING_EMPTY;
+    utest_fixture->fc.content = (byte*)tmp.text;
+    utest_fixture->fc.size = tmp.len;
+    utest_fixture->ts = token_stream_create(0, &utest_fixture->fc, &utest_fixture->rc);
 
-    const Token* token = ts_peek_next(&utest_fixture->ts);
+    const Token* token = token_stream_peek_next(&utest_fixture->ts);
 
     ASSERT_NE(NULL, token);
     ASSERT_EQ(TOKEN_EOF_, token->kind);
@@ -62,10 +70,12 @@ UTEST_F(TestTokenStream, peek_next_empty_source) {
 }
 
 UTEST_F(TestTokenStream, peek_next) {
-    utest_fixture->content = string_from_cstr("+");
-    utest_fixture->ts = ts_create(0, NULL, (byte*)utest_fixture->content.text, utest_fixture->content.len, NULL);
+    String tmp = string_from_cstr("+");
+    utest_fixture->fc.content = (byte*)tmp.text;
+    utest_fixture->fc.size = tmp.len;
+    utest_fixture->ts = token_stream_create(0, &utest_fixture->fc, &utest_fixture->rc);
 
-    const Token* token = ts_peek_next(&utest_fixture->ts);
+    const Token* token = token_stream_peek_next(&utest_fixture->ts);
 
     ASSERT_NE(NULL, token);
     ASSERT_EQ(TOKEN_PLUS, token->kind);
@@ -78,10 +88,12 @@ UTEST_F(TestTokenStream, peek_next) {
 // advance
 
 UTEST_F(TestTokenStream, advance_empty_source) {
-    utest_fixture->content = STRING_EMPTY;
-    utest_fixture->ts = ts_create(0, NULL, (byte*)utest_fixture->content.text, utest_fixture->content.len, NULL);
+    String tmp = STRING_EMPTY;
+    utest_fixture->fc.content = (byte*)tmp.text;
+    utest_fixture->fc.size = tmp.len;
+    utest_fixture->ts = token_stream_create(0, &utest_fixture->fc, &utest_fixture->rc);
 
-    const Token* token = ts_advance(&utest_fixture->ts);
+    const Token* token = token_stream_advance(&utest_fixture->ts);
 
     ASSERT_NE(NULL, token);
     ASSERT_EQ(TOKEN_EOF_, token->kind);
@@ -92,10 +104,12 @@ UTEST_F(TestTokenStream, advance_empty_source) {
 }
 
 UTEST_F(TestTokenStream, advance_1) {
-    utest_fixture->content = string_from_cstr("+");
-    utest_fixture->ts = ts_create(0, NULL, (byte*)utest_fixture->content.text, utest_fixture->content.len, NULL);
+    String tmp = string_from_cstr("+");
+    utest_fixture->fc.content = (byte*)tmp.text;
+    utest_fixture->fc.size = tmp.len;
+    utest_fixture->ts = token_stream_create(0, &utest_fixture->fc, &utest_fixture->rc);
 
-    const Token* token = ts_advance(&utest_fixture->ts);
+    const Token* token = token_stream_advance(&utest_fixture->ts);
 
     ASSERT_NE(NULL, token);
     ASSERT_EQ(TOKEN_PLUS, token->kind);
@@ -106,10 +120,12 @@ UTEST_F(TestTokenStream, advance_1) {
 }
 
 UTEST_F(TestTokenStream, advance_2) {
-    utest_fixture->content = string_from_cstr("+");
-    utest_fixture->ts = ts_create(0, NULL, (byte*)utest_fixture->content.text, utest_fixture->content.len, NULL);
+    String tmp = string_from_cstr("+");
+    utest_fixture->fc.content = (byte*)tmp.text;
+    utest_fixture->fc.size = tmp.len;
+    utest_fixture->ts = token_stream_create(0, &utest_fixture->fc, &utest_fixture->rc);
 
-    const Token* token = ts_advance(&utest_fixture->ts);
+    const Token* token = token_stream_advance(&utest_fixture->ts);
 
     ASSERT_NE(NULL, token);
     ASSERT_EQ(TOKEN_PLUS, token->kind);
@@ -118,7 +134,7 @@ UTEST_F(TestTokenStream, advance_2) {
     ASSERT_EQ(0, utest_fixture->ts.idx);
     ASSERT_EQ(1, utest_fixture->ts.tokens.size);
 
-    token = ts_advance(&utest_fixture->ts);
+    token = token_stream_advance(&utest_fixture->ts);
 
     ASSERT_NE(NULL, token);
     ASSERT_EQ(TOKEN_EOF_, token->kind);
@@ -131,10 +147,12 @@ UTEST_F(TestTokenStream, advance_2) {
 // move forward
 
 UTEST_F(TestTokenStream, move_forward_empty_source) {
-    utest_fixture->content = STRING_EMPTY;
-    utest_fixture->ts = ts_create(0, NULL, (byte*)utest_fixture->content.text, utest_fixture->content.len, NULL);
+    String tmp = STRING_EMPTY;
+    utest_fixture->fc.content = (byte*)tmp.text;
+    utest_fixture->fc.size = tmp.len;
+    utest_fixture->ts = token_stream_create(0, &utest_fixture->fc, &utest_fixture->rc);
 
-    ts_move_forward(&utest_fixture->ts);
+    token_stream_move_forward(&utest_fixture->ts);
 
     ASSERT_TRUE(utest_fixture->ts.done);
     ASSERT_EQ(0, utest_fixture->ts.idx);
@@ -142,10 +160,12 @@ UTEST_F(TestTokenStream, move_forward_empty_source) {
 }
 
 UTEST_F(TestTokenStream, move_forward_1) {
-    utest_fixture->content = string_from_cstr("+");
-    utest_fixture->ts = ts_create(0, NULL, (byte*)utest_fixture->content.text, utest_fixture->content.len, NULL);
+    String tmp = string_from_cstr("+");
+    utest_fixture->fc.content = (byte*)tmp.text;
+    utest_fixture->fc.size = tmp.len;
+    utest_fixture->ts = token_stream_create(0, &utest_fixture->fc, &utest_fixture->rc);
 
-    ts_move_forward(&utest_fixture->ts);
+    token_stream_move_forward(&utest_fixture->ts);
 
     ASSERT_FALSE(utest_fixture->ts.done);
     ASSERT_EQ(0, utest_fixture->ts.idx);
@@ -153,16 +173,18 @@ UTEST_F(TestTokenStream, move_forward_1) {
 }
 
 UTEST_F(TestTokenStream, move_forward_2) {
-    utest_fixture->content = string_from_cstr("+");
-    utest_fixture->ts = ts_create(0, NULL, (byte*)utest_fixture->content.text, utest_fixture->content.len, NULL);
+    String tmp = string_from_cstr("+");
+    utest_fixture->fc.content = (byte*)tmp.text;
+    utest_fixture->fc.size = tmp.len;
+    utest_fixture->ts = token_stream_create(0, &utest_fixture->fc, &utest_fixture->rc);
 
-    ts_move_forward(&utest_fixture->ts);
+    token_stream_move_forward(&utest_fixture->ts);
 
     ASSERT_FALSE(utest_fixture->ts.done);
     ASSERT_EQ(0, utest_fixture->ts.idx);
     ASSERT_EQ(1, utest_fixture->ts.tokens.size);
 
-    ts_move_forward(&utest_fixture->ts);
+    token_stream_move_forward(&utest_fixture->ts);
 
     ASSERT_TRUE(utest_fixture->ts.done);
     ASSERT_EQ(1, utest_fixture->ts.idx);
@@ -171,39 +193,19 @@ UTEST_F(TestTokenStream, move_forward_2) {
 
 // move back
 
-UTEST_F(TestTokenStream, move_back_empty_source) {
-    utest_fixture->content = STRING_EMPTY;
-    utest_fixture->ts = ts_create(0, NULL, (byte*)utest_fixture->content.text, utest_fixture->content.len, NULL);
+UTEST_F(TestTokenStream, move_back) {
+    String tmp = string_from_cstr("+");
+    utest_fixture->fc.content = (byte*)tmp.text;
+    utest_fixture->fc.size = tmp.len;
+    utest_fixture->ts = token_stream_create(0, &utest_fixture->fc, &utest_fixture->rc);
 
-    ts_move_back(&utest_fixture->ts);
-
-    ASSERT_FALSE(utest_fixture->ts.done);
-    ASSERT_EQ(-1, utest_fixture->ts.idx);
-    ASSERT_EQ(0, utest_fixture->ts.tokens.size);
-}
-
-UTEST_F(TestTokenStream, move_back_1) {
-    utest_fixture->content = string_from_cstr("+");
-    utest_fixture->ts = ts_create(0, NULL, (byte*)utest_fixture->content.text, utest_fixture->content.len, NULL);
-
-    ts_move_back(&utest_fixture->ts);
-
-    ASSERT_FALSE(utest_fixture->ts.done);
-    ASSERT_EQ(-1, utest_fixture->ts.idx);
-    ASSERT_EQ(0, utest_fixture->ts.tokens.size);
-}
-
-UTEST_F(TestTokenStream, move_back_2) {
-    utest_fixture->content = string_from_cstr("+");
-    utest_fixture->ts = ts_create(0, NULL, (byte*)utest_fixture->content.text, utest_fixture->content.len, NULL);
-
-    ts_move_forward(&utest_fixture->ts);
+    token_stream_move_forward(&utest_fixture->ts);
 
     ASSERT_FALSE(utest_fixture->ts.done);
     ASSERT_EQ(0, utest_fixture->ts.idx);
     ASSERT_EQ(1, utest_fixture->ts.tokens.size);
 
-    ts_move_back(&utest_fixture->ts);
+    token_stream_move_back(&utest_fixture->ts);
 
     ASSERT_FALSE(utest_fixture->ts.done);
     ASSERT_EQ(-1, utest_fixture->ts.idx);

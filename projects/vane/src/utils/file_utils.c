@@ -13,8 +13,8 @@
 #include <unistd.h>
 #endif
 
-IOStatus file_load(const String* path, byte** data, u64* size) {
-    assert(path != NULL && data != NULL && size != NULL);
+IOStatus file_content_load(FileContent* fc, const String* path) {
+    assert(fc != NULL && path != NULL);
 
     if (string_is_empty(path)) {
         return IO_STATUS_ERR_INVALID_PATH;
@@ -65,10 +65,23 @@ IOStatus file_load(const String* path, byte** data, u64* size) {
         return IO_STATUS_ERR_FILE_READ_FAILED;
     }
 
-    *data = content;
-    *size = fsize;
+    fc->path = path;
+    fc->content = content;
+    fc->size = fsize;
 
     return IO_STATUS_OK;
+}
+
+void file_content_destroy(FileContent* fc) {
+    if (fc == NULL) {
+        return;
+    }
+
+    free(fc->content);
+    fc->content = NULL;
+
+    fc->path = NULL;
+    fc->size = 0;
 }
 
 IOStatus iterate_directory(const String* dirpath, iterate_directory_fn iterate_fn, void* data) {

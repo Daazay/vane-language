@@ -1,218 +1,255 @@
+/*..............................START OF DEFINES..............................*/
+
 #ifndef AST_NODE
-#define AST_NODE(KIND, NAME, ...)
+#define AST_NODE(KIND, NAME, STRUCT, DESTROY_FUNCS)
 #endif
+
+#ifndef AST_NODE_GROUP
+#define AST_NODE_GROUP(KIND, NAME) AST_NODE(GROUP_##KIND, NAME, /* nothing */, /* nothing */)
+#endif
+
+/*..............................MISC..........................................*/
+
+AST_NODE_GROUP(MISC, "misc")
 
 #ifndef AST_NODE_MISC
-#define AST_NODE_MISC(KIND, NAME, ...) AST_NODE(KIND, NAME, __VA_ARGS__)
+#define AST_NODE_MISC(KIND, NAME, STRUCT, DESTROY_FUNCS) AST_NODE(KIND, NAME, STRUCT, DESTROY_FUNCS)
 #endif
+
+AST_NODE_MISC(UNKNOWN, "unknown", /* nothing */, /* nothing */)
+
+AST_NODE_MISC(ERROR,   "error", struct {
+    ASTNodeKind failed;
+    ASTNode* prev;
+} error;,
+    ast_node_destroy(node->as.error.prev);
+)
+
+AST_NODE_MISC(IDENTIFIER, "identifier", struct {
+    String value;
+} id;,
+    string_destroy(&node->as.id.value);
+)
+
+AST_NODE_MISC(PACKAGE_DECL, "package:decl", struct {
+    ASTNode* id;
+} package_decl;,
+    ast_node_destroy(node->as.package_decl.id);
+)
+
+AST_NODE_MISC(IMPORT_DECL, "import:decl", struct {
+    ASTNode* path;
+    ASTNode* alias;
+} import_decl;,
+    ast_node_destroy(node->as.import_decl.path);
+    ast_node_destroy(node->as.import_decl.alias);
+)
+
+AST_NODE_MISC(FUN_PARAM, "fun:param", struct {
+    ASTNode* id;
+    ASTNode* type;
+} fun_param;,
+    ast_node_destroy(node->as.fun_param.id);
+    ast_node_destroy(node->as.fun_param.type);
+)
+
+AST_NODE_MISC(FUN_SIGN, "fun:sign", struct {
+    ASTNode* id;
+    Vector params;
+    ASTNode* type;
+} fun_sign;,
+    ast_node_destroy(node->as.fun_sign.id);
+    vector_destroy(&node->as.fun_sign.params);
+    ast_node_destroy(node->as.fun_sign.type);
+)
+
+AST_NODE_MISC(FUN_DECL, "fun:decl", struct {
+    ASTNode* sign;
+    Vector block;
+} fun_decl;,
+    ast_node_destroy(node->as.fun_decl.sign);
+    vector_destroy(&node->as.fun_decl.block);
+)
+
+/*..............................TYPE..........................................*/
+
+AST_NODE_GROUP(TYPE, "type")
 
 #ifndef AST_NODE_TYPE
-#define AST_NODE_TYPE(KIND, NAME, ...) AST_NODE(TYPE_##KIND, "type:"NAME, __VA_ARGS__)
+#define AST_NODE_TYPE(KIND, NAME, STRUCT, DESTROY_FUNCS) AST_NODE(TYPE_##KIND, NAME, STRUCT, DESTROY_FUNCS)
 #endif
+
+AST_NODE_TYPE(BUILTIN, "builtin", struct {
+    TokenKind kind;
+} type_builtin;, /* nothing */)
+
+AST_NODE_TYPE(CUSTOM, "custom", struct {
+    String value;
+} type_custom;,
+    string_destroy(&node->as.type_custom.value);
+)
+
+AST_NODE_TYPE(PTR, "ptr", struct {
+    ASTNode* type;
+} type_ptr;,
+    ast_node_destroy(node->as.type_ptr.type);
+)
+
+AST_NODE_TYPE(ARR, "arr", struct {
+    ASTNode* size_expr;
+    ASTNode* type;
+} type_arr;,
+    ast_node_destroy(node->as.type_arr.size_expr);
+    ast_node_destroy(node->as.type_arr.type);
+)
+
+/*..............................STMT..........................................*/
+
+AST_NODE_GROUP(STMT, "stmt")
 
 #ifndef AST_NODE_STMT
-#define AST_NODE_STMT(KIND, NAME, ...) AST_NODE(STMT_##KIND, "stmt:"NAME, __VA_ARGS__)
+#define AST_NODE_STMT(KIND, NAME, STRUCT, DESTROY_FUNCS) AST_NODE(STMT_##KIND, NAME, STRUCT, DESTROY_FUNCS)
 #endif
+
+AST_NODE_STMT(VAR_ITEM, "var:item", struct {
+    ASTNode* id;
+    ASTNode* type;
+    ASTNode* expr;
+} stmt_var_item;,
+    ast_node_destroy(node->as.stmt_var_item.id);
+    ast_node_destroy(node->as.stmt_var_item.type);
+    ast_node_destroy(node->as.stmt_var_item.expr);
+)
+
+AST_NODE_STMT(BRANCH, "branch", struct {
+    ASTNode* expr;
+    Vector block;
+} stmt_branch;,
+    ast_node_destroy(node->as.stmt_branch.expr);
+    vector_destroy(&node->as.stmt_branch.block);
+)
+
+AST_NODE_STMT(VAR_DECL, "var:decl", struct {
+    Vector items;
+} stmt_var_decl;,
+    vector_destroy(&node->as.stmt_var_decl.items);
+)
+
+AST_NODE_STMT(CONDITION, "condition", struct {
+    Vector items;
+} stmt_condition;,
+    vector_destroy(&node->as.stmt_condition.items);
+)
+
+AST_NODE_STMT(WHILE, "while", struct {
+    ASTNode* expr;
+    Vector block;
+} stmt_while;,
+    ast_node_destroy(node->as.stmt_while.expr);
+    vector_destroy(&node->as.stmt_while.block);
+)
+
+AST_NODE_STMT(DO, "do", struct {
+    ASTNode* expr;
+    Vector block;
+} stmt_do;,
+    ast_node_destroy(node->as.stmt_do.expr);
+    vector_destroy(&node->as.stmt_do.block);
+)
+
+AST_NODE_STMT(BREAK, "break", /* nothing */, /* nothing */)
+
+AST_NODE_STMT(CONTINUE, "continue", /* nothing */, /* nothing */)
+
+AST_NODE_STMT(RETURN, "return", struct {
+    ASTNode* expr;
+} stmt_return;,
+    ast_node_destroy(node->as.stmt_return.expr);
+)
+
+/*..............................EXPR..........................................*/
+
+AST_NODE_GROUP(EXPR, "expr")
+
+AST_NODE_GROUP(EXPR_NUD, "expr:nud")
+
+AST_NODE_GROUP(EXPR_LED, "expr:led")
 
 #ifndef AST_NODE_EXPR
-#define AST_NODE_EXPR(KIND, NAME, ...) AST_NODE(EXPR_##KIND, "expr:"NAME, __VA_ARGS__)
+#define AST_NODE_EXPR(KIND, NAME, STRUCT, DESTROY_FUNCS) AST_NODE(EXPR_##KIND, NAME, STRUCT, DESTROY_FUNCS)
 #endif
 
-#ifndef AST_NODE_LITERAL
-#define AST_NODE_LITERAL(KIND, NAME, ...) AST_NODE(LITERAL_##KIND, "literal:"NAME, __VA_ARGS__)
-#endif
+AST_NODE_EXPR(BINARY, "binary", struct {
+    TokenKind op;
+    ASTNode* lhs;
+    ASTNode* rhs;
+} expr_binary;,
+    ast_node_destroy(node->as.expr_binary.lhs);
+    ast_node_destroy(node->as.expr_binary.rhs);
+)
 
-//----------------------------------------------------------//
-//                    START OF DEFINES                      //
-//----------------------------------------------------------//
+AST_NODE_EXPR(PREFIX_UNARY, "unary:pefix", struct {
+    TokenKind op;
+    ASTNode* rhs;
+} expr_prefix_unary;,
+    ast_node_destroy(node->as.expr_prefix_unary.rhs);
+)
 
-AST_NODE_MISC(UNKNOWN,                  "unknown")
+AST_NODE_EXPR(POSTFIX_UNARY, "unary:postfix", struct {
+    TokenKind op;
+    ASTNode* lhs;
+} expr_postfix_unary;,
+    ast_node_destroy(node->as.expr_postfix_unary.lhs);
+)
 
-AST_NODE_MISC(ERROR,                    "error",            struct { \
-    ASTNode* next; \
-} error; )
+AST_NODE_EXPR(BRACES, "braces", struct {
+    ASTNode* expr;
+} expr_braces;,
+    ast_node_destroy(node->as.expr_braces.expr);
+)
 
-AST_NODE_MISC(IDENTIFIER,               "identifier",       struct { \
-    String value; \
-} identifier; )
+AST_NODE_EXPR(PLACE, "place", struct {
+    String value;
+} expr_place;,
+    string_destroy(&node->as.expr_place.value);
+)
 
-AST_NODE_MISC(PACKAGE_DECL,             "package:decl",     struct { \
-    ASTNode* id; \
-} package_decl; )
+AST_NODE_EXPR(CALL, "call", struct {
+    ASTNode* callee;
+    Vector args;
+} expr_call;,
+    ast_node_destroy(node->as.expr_call.callee);
+    vector_destroy(&node->as.expr_call.args);
+)
 
-AST_NODE_MISC(IMPORT_DECL,              "import:decl",      struct { \
-    ASTNode* path; \
-    ASTNode* alias; \
-} import_decl; )
+AST_NODE_EXPR(INDEX, "index", struct {
+    ASTNode* callee;
+    Vector args;
+} expr_index;,
+    ast_node_destroy(node->as.expr_index.callee);
+    vector_destroy(&node->as.expr_index.args);
+)
 
-AST_NODE_TYPE(VOID,                     "void")
-AST_NODE_TYPE(ANY,                      "any")
-AST_NODE_TYPE(U8,                       "u8")
-AST_NODE_TYPE(I8,                       "i8")
-AST_NODE_TYPE(U16,                      "u16")
-AST_NODE_TYPE(I16,                      "i16")
-AST_NODE_TYPE(U32,                      "u32")
-AST_NODE_TYPE(I32,                      "i32")
-AST_NODE_TYPE(U64,                      "u64")
-AST_NODE_TYPE(I64,                      "i64")
+AST_NODE_EXPR(MEMBER, "member", struct {
+    ASTNode* object;
+    ASTNode* member;
+} expr_member;,
+    ast_node_destroy(node->as.expr_member.object);
+    ast_node_destroy(node->as.expr_member.member);
+)
 
-AST_NODE_TYPE(CUSTOM,                   "custom",           struct { \
-    String value; \
-} type_custom; )
+AST_NODE_EXPR(LITERAL, "literal", struct {
+    TokenKind kind;
+    String value;
+} expr_literal;,
+    string_destroy(&node->as.expr_literal.value);
+)
 
-AST_NODE_TYPE(PTR,                      "ptr",              struct { \
-    ASTNode* type; \
-} type_ptr; )
+/*..............................END OF DEFINES................................*/
 
-AST_NODE_TYPE(ARR,                      "arr",              struct { \
-    ASTNode* type; \
-    ASTNode* expr; \
-} type_arr; )
-
-AST_NODE_MISC(FUNC_PARAM,               "func_param",       struct { \
-    ASTNode* id; \
-    ASTNode* type; \
-} func_param; )
-
-AST_NODE_MISC(FUNC_SIGN,                "func_sign",        struct { \
-    ASTNode* id; \
-    Vector params; \
-    ASTNode* type; \
-} func_sign; )
-
-AST_NODE_MISC(FUNC_DECL,                "func_decl",        struct { \
-    ASTNode* sign; \
-    Vector body; \
-} func_decl; )
-
-AST_NODE_STMT(EMPTY,                    "empty")
-
-AST_NODE_STMT(BLOCK,                    "block",            struct { \
-    Vector stmts; \
-} stmt_block; )
-
-AST_NODE_MISC(CONST_ITEM,               "const_item",       struct { \
-    ASTNode* id; \
-    ASTNode* type; \
-    ASTNode* expr; \
-} const_item; )
-
-AST_NODE_STMT(CONST_DECL,               "const_decl",       struct { \
-    Vector items; \
-} stmt_const_decl; )
-
-AST_NODE_MISC(VAR_ITEM,                 "var_item",         struct { \
-    ASTNode* id; \
-    ASTNode* type; \
-    ASTNode* expr; \
-} var_item; )
-
-AST_NODE_STMT(VAR_DECL,                 "var_decl",         struct { \
-    Vector items; \
-} stmt_var_decl; )
-
-AST_NODE_MISC(BRANCH,                   "branch",           struct { \
-    ASTNode* expr; \
-    Vector block; \
-} branch; )
-
-AST_NODE_STMT(CONDITION,                "condition",        struct { \
-    Vector branches; \
-} stmt_condition; )
-
-AST_NODE_STMT(WHILE,                    "while",            struct { \
-    ASTNode* expr; \
-    Vector block; \
-} stmt_while; )
-
-AST_NODE_STMT(DO,                       "do",               struct { \
-    ASTNode* expr; \
-    Vector block; \
-} stmt_do; )
-
-AST_NODE_STMT(BREAK,                    "break")
-
-AST_NODE_STMT(CONTINUE,                 "continue")
-
-AST_NODE_STMT(DEFER,                    "defer",            struct { \
-    ASTNode* defer; \
-} stmt_defer; )
-
-AST_NODE_STMT(EXPR,                     "expr",             struct { \
-    ASTNode* expr; \
-} stmt_expr; )
-
-AST_NODE_STMT(RETURN,                   "return",           struct { \
-    ASTNode* expr; \
-} stmt_return; )
-
-AST_NODE_EXPR(BINARY,                   "binary",           struct { \
-    TokenKind op; \
-    ASTNode* lhs; \
-    ASTNode* rhs; \
-} expr_binary; )
-
-AST_NODE_EXPR(PREFIX_UNARY,             "prefix_unary",     struct { \
-    TokenKind op; \
-    ASTNode* rhs; \
-} expr_prefix_unary; )
-
-AST_NODE_EXPR(POSTFIX_UNARY,            "postfix_unary",    struct { \
-    TokenKind op; \
-    ASTNode* lhs; \
-} expr_postfix_unary; )
-
-AST_NODE_EXPR(BRACES,                   "braces",           struct { \
-    ASTNode* expr; \
-} expr_braces; )
-
-AST_NODE_EXPR(CALL,                     "call",             struct { \
-    ASTNode* callee; \
-    Vector args; \
-} expr_call; )
-
-AST_NODE_EXPR(INDEX,                    "index",            struct { \
-    ASTNode* callee; \
-    Vector args; \
-} expr_index; )
-
-AST_NODE_EXPR(CAST,                     "cast",             struct { \
-    ASTNode* type; \
-    ASTNode* expr; \
-} expr_cast; )
-
-AST_NODE_EXPR(PLACE,                    "place",            struct { \
-    String value; \
-} expr_place; )
-
-AST_NODE_EXPR(MEMBER,                   "member",           struct { \
-    ASTNode* object; \
-    ASTNode* member; \
-} expr_member; )
-
-AST_NODE_EXPR(INIT_LIST,                "init_list",        struct { \
-    Vector items; \
-} expr_init_list; )
-
-AST_NODE_EXPR(NIL,                      "nil")
-
-AST_NODE_LITERAL(STRING,                "string",           struct { \
-    String value; \
-} literal; )
-
-AST_NODE_LITERAL(CHAR,                  "char")
-AST_NODE_LITERAL(DEC,                   "dec")
-AST_NODE_LITERAL(HEX,                   "hex")
-AST_NODE_LITERAL(BIN,                   "bin")
-AST_NODE_LITERAL(BOOL,                  "bool")
-
-//----------------------------------------------------------//
-//                      END OF DEFINES                      //
-//----------------------------------------------------------//
-
-#undef AST_NODE
-#undef AST_NODE_MISC
-#undef AST_NODE_TYPE
-#undef AST_NODE_STMT
 #undef AST_NODE_EXPR
-#undef AST_NODE_LITERAL
+#undef AST_NODE_STMT
+#undef AST_NODE_TYPE
+#undef AST_NODE_MISC
+#undef AST_NODE_GROUP
+#undef AST_NODE

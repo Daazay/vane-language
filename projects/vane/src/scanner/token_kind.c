@@ -4,15 +4,19 @@ const char* get_token_kind_name(TokenKind kind) {
     switch (kind) {
 #define TOKEN(KIND, NAME, VALUE) case TOKEN_##KIND: return NAME;
 #include "vane/scanner/token_kind.def"
-    default: return NULL;
+    default:
+        unreachable();
+        return NULL;
     }
 }
 
 const char* get_token_kind_value(TokenKind kind) {
     switch (kind) {
-#define TOKEN_PUNC(KIND, NAME, VALUE) case TOKEN_##KIND: return VALUE;
+#define TOKEN(KIND, NAME, VALUE) case TOKEN_##KIND: return VALUE;
 #include "vane/scanner/token_kind.def"
-    default: return get_token_kind_name(kind);
+    default:
+        unreachable();
+        return NULL;
     }
 }
 
@@ -34,7 +38,7 @@ bool is_token_kind_a_punc(TokenKind kind) {
 
 bool is_token_kind_an_op(TokenKind kind) {
     switch (kind) {
-#define TOKEN_OP(ID, NAME, VALUE, PREC) case TOKEN_##ID: return true;
+#define TOKEN_OP(KIND, NAME, VALUE, PREC) case TOKEN_##KIND: return true;
 #include "vane/scanner/token_kind.def"
     default:
         return false;
@@ -43,11 +47,15 @@ bool is_token_kind_an_op(TokenKind kind) {
 
 bool is_token_kind_a_binop(TokenKind kind) {
     switch (kind) {
-#define TOKEN_BINOP(ID, NAME, VALUE, PREC) case TOKEN_##ID: return true;
+#define TOKEN_BINOP(KIND, NAME, VALUE, PREC) case TOKEN_##KIND: return true;
 #include "vane/scanner/token_kind.def"
     default:
         return false;
     }
+}
+
+bool is_token_kind_an_unop(TokenKind kind) {
+    return is_token_kind_a_prefix_unop(kind) || is_token_kind_a_postfix_unop(kind);
 }
 
 bool is_token_kind_a_prefix_unop(TokenKind kind) {
@@ -56,14 +64,14 @@ bool is_token_kind_a_prefix_unop(TokenKind kind) {
     case TOKEN_MINUS: return true;
     case TOKEN_CARET: return true;
     case TOKEN_AMP:   return true;
-#define TOKEN_UNOP(ID, NAME, VALUE, PREC) case TOKEN_##ID: return true;
+#define TOKEN_UNOP(KIND, NAME, VALUE, PREC) case TOKEN_##KIND: return true;
 #include "vane/scanner/token_kind.def"
     default:
         return false;
     }
 }
 
-bool is_token_kind_an_postfix_unop(TokenKind kind) {
+bool is_token_kind_a_postfix_unop(TokenKind kind) {
     switch (kind) {
     case TOKEN_PLUS_PLUS:   return true;
     case TOKEN_MINUS_MINUS: return true;
@@ -103,9 +111,9 @@ bool is_token_kind_a_literal(TokenKind kind) {
     }
 }
 
-OpPrecedence get_op_precedence(TokenKind kind) {
+OpPrecedence get_token_kind_precedence(TokenKind kind) {
     switch (kind) {
-#define TOKEN_OP(ID, NAME, VAUE, PREC) case TOKEN_##ID: return OP_PREC_##PREC;
+#define TOKEN_OP(KIND, NAME, VAUE, PREC) case TOKEN_##KIND: return OP_PREC_##PREC;
 #include "vane/scanner/token_kind.def"
     default: return OP_PREC_NONE;
     }
