@@ -1118,7 +1118,7 @@ ASTNode* ast_parser_parse_stmt_return(ASTParser* ast_parser) {
     ASTNode* expr = NULL;
 
     token = token_stream_peek_next(ast_parser->ts);
-    if (token->kind != TOKEN_SEMICOLON) {
+    if (token->kind != TOKEN_SEMICOLON && token->first_in_line == false) {
         expr = ast_parser_parse_expr(ast_parser);
         loc.end = expr->loc.end;
 
@@ -1161,7 +1161,14 @@ ASTNode* ast_parser_parse_expr_with_prec(ASTParser* ast_parser, OpPrecedence pre
         return node;
     }
 
+    const Token* token = NULL;
     while (!token_stream_is_end(ast_parser->ts)) {
+        token = token_stream_peek_next(ast_parser->ts);
+
+        if (token->first_in_line) {
+            break;
+        }
+
         OpPrecedence new_prec = get_token_kind_precedence(token_stream_peek_next(ast_parser->ts)->kind);
         if (new_prec <= prec) {
             break;

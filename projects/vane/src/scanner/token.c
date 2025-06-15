@@ -4,7 +4,8 @@ Token token_create(TokenKind kind, String value, SourceLoc loc) {
     return (Token) {
         .kind  = kind,
         .value = value,
-        .loc   = loc
+        .loc   = loc,
+        .first_in_line = false,
     };
 }
 

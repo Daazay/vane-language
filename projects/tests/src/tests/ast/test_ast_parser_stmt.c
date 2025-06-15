@@ -650,12 +650,17 @@ UTEST_F(TestASTParser, stmt_return4) {
 }
 
 UTEST_F(TestASTParser, stmt_return5) {
+    AST_TEST_INIT("return \n6", ast_parser_parse_stmt_return);
+    ASSERT_AST_STMT_RETURN(node, AST_NODE_UNKNOWN);
+}
+
+UTEST_F(TestASTParser, stmt_return6) {
     AST_TEST_INIT("return 0", ast_parser_parse_stmt_return);
     ASSERT_AST_STMT_RETURN(node, AST_NODE_EXPR_LITERAL);
     ASSERT_AST_EXPR_LITERAL_DEC(node->as.stmt_return.expr, "0");
 }
 
-UTEST_F(TestASTParser, stmt_return6) {
+UTEST_F(TestASTParser, stmt_return7) {
     AST_TEST_INIT("return 1 + 2", ast_parser_parse_stmt_return);
     ASSERT_AST_STMT_RETURN(node, AST_NODE_EXPR_BINARY);
     ASSERT_AST_EXPR_BINARY(node->as.stmt_return.expr, TOKEN_PLUS, AST_NODE_EXPR_LITERAL, AST_NODE_EXPR_LITERAL);

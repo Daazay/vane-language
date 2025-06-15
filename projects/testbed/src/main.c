@@ -9,7 +9,9 @@ int main() {
     String content = string_from_cstr(""
         "fun main(args: []string): int\n"
         "    io.println(\"Hello, world\");\n"
-        "    return 0;\n"
+        "    a + b\n"
+        "    - b\n"
+        "    return 0\n"
         "end\n"
     );
     FileContent fc = {

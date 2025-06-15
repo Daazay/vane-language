@@ -15,12 +15,14 @@
 typedef struct Scanner Scanner;
 
 struct Scanner {
+    SourceLoc loc;
+
     String content;
     u64 pos;
 
-    SourceLoc loc;
-
     ReportCollector* rc;
+
+    bool first_in_line;
 };
 
 Scanner scanner_create(const FileContent* fc, ReportCollector* rc);
