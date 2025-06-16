@@ -9,9 +9,9 @@
 typedef struct Token Token;
 
 struct Token {
-    SourceLoc loc;
-    String value;
     TokenKind kind;
+    String value;
+    SourceLoc loc;
     bool first_in_line;
 };
 

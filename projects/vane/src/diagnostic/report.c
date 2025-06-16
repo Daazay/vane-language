@@ -7,8 +7,9 @@
 
 #define REPORT_DEFAULT_INFOS_SIZE 4
 
-ReportTrace report_trace_create(String msg, SourceLoc loc) {
+ReportTrace report_trace_create(DiagnosticKind kind, String msg, SourceLoc loc) {
     return (ReportTrace) {
+        .kind = kind,
         .msg = msg,
         .loc = loc,
     };
@@ -22,10 +23,11 @@ void report_trace_destroy(ReportTrace* trace) {
     string_destroy(&trace->msg);
 }
 
-Report* report_create(DiagnosticSeverity severity, String msg, SourceLoc loc, Vector trace) {
+Report* report_create(DiagnosticKind kind, DiagnosticSeverity severity, String msg, SourceLoc loc, Vector trace) {
     Report* report = malloc(sizeof(Report));
     assert(report != NULL);
 
+    report->kind = kind;
     report->severity = severity;
     report->msg = msg;
     report->loc = loc;
@@ -44,9 +46,32 @@ void report_destroy(Report* report) {
     free(report);
 }
 
+static void print_loc(DiagnosticKind kind, const SourceLoc* loc) {
+    assert(loc != NULL);
+
+    switch (kind) {
+    case DIAG_KIND_INTERNAL:
+        break;
+    case DIAG_KIND_IO:
+        printf(" - `%.*s`", (i32)loc->path->len, loc->path->text);
+        break;
+    case DIAG_KIND_LEX:
+    case DIAG_KIND_SYNTAX:
+    case DIAG_KIND_SEMANTIC:
+        printf(" at %.*s:%d:%d",
+            (i32)loc->path->len, loc->path->text,
+            (i32)loc->begin.line, (i32)loc->begin.column
+        );
+        break;
+    default:
+        unreachable();
+        break;
+    }
+    printf("\n");
+}
+
 void report_print(const Report* report, bool colored) {
     assert(report != NULL);
-
 
     if (colored) {
         TerminalColor font_color = TERMINAL_COLOR_WHITE;
@@ -69,7 +94,10 @@ void report_print(const Report* report, bool colored) {
         terminal_set_color(font_color, bg_color);
     }
 
-    printf("[%s]", get_diagnostic_severity_name(report->severity));
+    printf("[%s:%s]",
+        get_diagnostic_kind_name(report->kind),
+        get_diagnostic_severity_name(report->severity)
+    );
 
     if (colored) {
         terminal_reset_format();
@@ -77,18 +105,7 @@ void report_print(const Report* report, bool colored) {
 
     printf(" %.*s", (i32)report->msg.len, report->msg.text);
 
-    if (report->loc.path != NULL) {
-        printf("at %.*s:%u:%u:%u:%u\n",
-            (i32)report->loc.path->len, report->loc.path->text,
-            report->loc.begin.line, report->loc.begin.column,
-            report->loc.end.line, report->loc.end.column
-        );
-    }
-    else {
-        printf(" at <source>:%d:%d\n",
-            (i32)report->loc.begin.line, (i32)report->loc.begin.column
-        );
-    }
+    print_loc(report->kind, &report->loc);
 
     report_trace_print(&report->trace);
 }
@@ -99,20 +116,8 @@ void report_trace_print(const Vector* trace) {
     for (u32 i = trace->size; i-- != 0;) {
         const ReportTrace* t = vector_at(trace, i);
 
-        printf("    Cause: %.*s", (i32)t->msg.len, t->msg.text);
+        printf("    -> %.*s", (i32)t->msg.len, t->msg.text);
 
-        if (t->loc.path != NULL) {
-            printf("at %.*s:%u:%u:%u:%u\n",
-                (i32)t->loc.path->len, t->loc.path->text,
-                t->loc.begin.line, t->loc.begin.column,
-                t->loc.end.line, t->loc.end.column
-            );
-        }
-        else {
-            printf(" at <source>:%u:%u:%u:%u\n",
-                t->loc.begin.line, t->loc.begin.column,
-                t->loc.end.line, t->loc.end.column
-            );
-        }
+        print_loc(t->kind, &t->loc);
     }
 }

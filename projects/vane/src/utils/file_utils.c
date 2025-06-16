@@ -115,7 +115,7 @@ IOStatus iterate_directory(const String* dirpath, iterate_directory_fn iterate_f
         bool is_dir = (find_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
         u64 size = ((u64)find_data.nFileSizeHigh << 32) | find_data.nFileSizeLow;
 
-        if (!iterate_fn(&name, is_dir, size, data)) {
+        if (!iterate_fn(dirpath, &name, is_dir, size, data)) {
             break;
         }
     } while (FindNextFileA(handle, &find_data));
@@ -150,7 +150,7 @@ IOStatus iterate_directory(const String* dirpath, iterate_directory_fn iterate_f
         bool is_dir = S_ISDIR(st.st_mode);
         u64 size = (u64)st.st_size;
 
-        if (!iterate_fn(&name, is_dir, size, data)) {
+        if (!iterate_fn(dirpath, &name, is_dir, size, data)) {
             break;
         }
     }

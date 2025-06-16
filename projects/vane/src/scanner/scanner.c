@@ -46,10 +46,7 @@ return (Token) { \
 
 #pragma region DIAGNOSTIC
 
-#define TRACE(FORMAT, ...) do { \
-    String _msg = string_from_fmt(FORMAT, ##__VA_ARGS__); \
-    report_collector_append_report_trace(scanner->rc, _msg, scanner->loc); \
-} while (false)
+#define TRACE(FMT, ...) REPORT_COLLECTOR_TRACE_LEX(scanner->rc, scanner->loc, FMT, ##__VA_ARGS__)
 
 #pragma endregion
 

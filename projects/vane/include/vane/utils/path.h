@@ -19,6 +19,12 @@ String get_absolute_path(const String* path);
 
 String get_normalized_path(const String* path);
 
+String get_current_working_dir();
+
+String get_relative_path(const String* abs_from, const String* abs_to);
+
+String get_path_name(const String* path);
+
 String path_join_str(u32 count, const String* paths[]);
 
 String path_join_cstr(u32 count, const char* paths[]);

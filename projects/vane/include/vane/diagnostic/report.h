@@ -10,11 +10,13 @@ typedef struct Report Report;
 typedef struct ReportTrace ReportTrace;
 
 struct ReportTrace {
+    DiagnosticKind kind;
     String msg;
     SourceLoc loc;
 };
 
 struct Report {
+    DiagnosticKind kind;
     DiagnosticSeverity severity;
     String msg;
     SourceLoc loc;
@@ -22,11 +24,11 @@ struct Report {
     Vector trace;
 };
 
-ReportTrace report_trace_create(String msg, SourceLoc loc);
+ReportTrace report_trace_create(DiagnosticKind kind, String msg, SourceLoc loc);
 
 void report_trace_destroy(ReportTrace* trace);
 
-Report* report_create(DiagnosticSeverity severity, String msg, SourceLoc loc, Vector trace);
+Report* report_create(DiagnosticKind kind, DiagnosticSeverity severity, String msg, SourceLoc loc, Vector trace);
 
 void report_destroy(Report* report);
 

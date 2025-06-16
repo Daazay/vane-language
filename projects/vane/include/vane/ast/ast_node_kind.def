@@ -15,6 +15,7 @@
 /*..............................MISC..........................................*/
 
 AST_NODE_GROUP(MISC, "misc")
+AST_NODE_GROUP(PACKAGE_ENTITY, "package:entity")
 
 #ifndef AST_NODE_MISC
 #define AST_NODE_MISC(KIND, NAME, STRUCT, DESTROY, VISIT) AST_NODE(KIND, NAME, STRUCT, DESTROY, VISIT)

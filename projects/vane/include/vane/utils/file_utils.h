@@ -7,7 +7,7 @@ typedef enum IOStatus IOStatus;
 
 typedef struct FileContent FileContent;
 
-typedef bool(*iterate_directory_fn)(const String* name, bool is_dir, u64 size, void* data);
+typedef bool(*iterate_directory_fn)(const String* dir, const String* name, bool is_dir, u64 size, void* data);
 
 enum IOStatus {
     IO_STATUS_OK,

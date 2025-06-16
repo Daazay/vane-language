@@ -7,7 +7,7 @@
 #include <windows.h>
 #else
 #include <unistd.h>
-#include <limits.h>
+#include <linux/limits.h>
 #include <sys/stat.h>
 #endif
 
@@ -31,12 +31,13 @@ String get_absolute_path(const String* path) {
         return STRING_EMPTY;
     }
 
-    char* text = malloc(len + 1);
+    char* text = malloc(len);
     assert(text != NULL);
 
     GetFullPathNameA(path->text, (DWORD)len, text, NULL);
 
-    return (String) { .text = text, .len = len };
+    // len - 1 becouse GetFullPathNameA return len + 1 for null terminator
+    return (String) { .text = text, .len = len - 1 };
 #else
     char cwd[1024] = { 0 };
     if (getcwd(cwd, sizeof(cwd)) == NULL) {
@@ -124,6 +125,129 @@ String get_normalized_path(const String* path) {
     vector_destroy(&components);
 
     return normalized;
+}
+
+String get_current_working_dir() {
+#if defined PLATFORM_WINDOWS
+    char buf[MAX_PATH] = { 0 };
+    DWORD len = GetCurrentDirectoryA(sizeof(buf), buf);
+    if (len == 0 || len >= MAX_PATH) {
+        return STRING_EMPTY;
+    }
+    String tmp = { .text = buf, .len = len, };
+    return string_clone(&tmp);
+#else
+    char buf[PATH_MAX] = { 0 };
+    if (!getcwd(buf, sizeof(buf))) {
+        return STRING_EMPTY;
+    }
+    return string_from_cstr(buf);
+#endif
+}
+
+static Vector split_path_into_components(const String* p) {
+    assert(p != NULL);
+
+    if (string_is_empty(p)) {
+        return (Vector) { 0 };
+    }
+
+    Vector components = vector_create(8, VECTOR_ITEM_SPECS(String, NULL));
+
+    u64 start = 0;
+    for (u64 i = 0; i <= p->len; ++i) {
+        if (i == p->len || is_path_sep(p->text[i])) {
+            if (i > start) {
+                String part = (String){ .text = p->text + start, i - start };
+                vector_push_back(&components, &part);
+            }
+            start = i + 1;
+        }
+    }
+
+    return components;
+}
+
+String get_relative_path(const String* from, const String* to) {
+    assert(from != NULL && to != NULL);
+    assert(is_path_absolute(from) && is_path_absolute(to));
+
+
+    if (string_is_empty(from) || string_is_empty(to)) {
+        return STRING_EMPTY;
+    }
+
+#if defined PLATFORM_WINDOWS
+    if (from->text[0] != to->text[0]) {
+        return STRING_EMPTY;
+    }
+#endif
+
+    Vector from_components = split_path_into_components(from);
+    Vector to_components = split_path_into_components(to);
+
+    u32 common = 0;
+
+    while (common < from_components.size && common < to_components.size) {
+        const String* a = vector_at(&from_components, common);
+        const String* b = vector_at(&to_components, common);
+
+        if (!string_eq_str(a, b)) {
+            break;
+        }
+        ++common;
+    }
+
+    StringBuilder sb = sb_create(64);
+
+    for (u32 i = common; i < from_components.size; ++i) {
+        if (sb.len > 0) {
+            sb_append_c(&sb, PATH_SEP);
+        }
+        sb_append_cstr(&sb, "..");
+    }
+
+    for (u32 i = common; i < to_components.size; ++i) {
+        if (sb.len > 0) {
+            sb_append_c(&sb, PATH_SEP);
+        }
+        const String* comp = vector_at(&to_components, i);
+        sb_append_str(&sb, comp);
+    }
+
+    vector_destroy(&from_components);
+    vector_destroy(&to_components);
+
+    if (sb.len == 0) {
+        sb_destroy(&sb);
+        return string_from_cstr(".");
+    }
+
+    String res = sb_get_str(&sb);
+    sb_destroy(&sb);
+
+    return res;
+}
+
+String get_path_name(const String* path) {
+    assert(path != NULL);
+
+    if (string_is_empty(path)) {
+        return STRING_EMPTY;
+    }
+
+    u64 end = path->len;
+    while (end > 1 && is_path_sep(path->text[end - 1])) {
+        --end;
+    }
+
+    // Find last path separator before `end`
+    u64 start = end;
+    while (start > 0 && !is_path_sep(path->text[start - 1])) {
+        --start;
+    }
+
+    return string_substr(path, start, end - start);
 }
 
 String path_join_str(u32 count, const String* paths[]) {

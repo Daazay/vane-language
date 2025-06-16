@@ -42,7 +42,7 @@ void token_stream_destroy(TokenStream* ts) {
 bool token_stream_is_end(const TokenStream* ts) {
     assert(ts != NULL);
 
-    if (ts->done && (ts->idx + 2 == (i32)ts->tokens.size)) {
+    if (ts->done && (ts->idx + 2 >= (i32)ts->tokens.size)) {
         return true;
     }
     return false;
@@ -108,11 +108,7 @@ const Token* token_stream_expect(TokenStream* ts, TokenKind expected) {
         return token;
     }
 
-    String msg = string_from_fmt("Expected `%s`, but got `%s`",
-        get_token_kind_value(expected),
-        get_token_kind_value(token->kind)
-    );
-    report_collector_append_report_trace(ts->scanner.rc, msg, token->loc);
+    REPORT_COLLECTOR_TRACE_SYNTAX(ts->scanner.rc, token->loc, "Expected any `%s`, but got `%s`", get_token_kind_value(expected), get_token_kind_value(token->kind));
 
     return token;
 }
@@ -136,11 +132,7 @@ const Token* token_stream_expect_any_impl(TokenStream* ts, const TokenKind expec
         }
     }
 
-    String msg = string_from_fmt("Expected any [%.*s], but got `%s`",
-        (i32)sb.len, sb.buf,
-        get_token_kind_value(token->kind)
-    );
-    report_collector_append_report_trace(ts->scanner.rc, msg, token->loc);
+    REPORT_COLLECTOR_TRACE_SYNTAX(ts->scanner.rc, token->loc, "Expected any [%.*s], but got `%s`", (i32)sb.len, sb.buf, get_token_kind_value(token->kind));
 
     sb_destroy(&sb);
 
@@ -158,11 +150,7 @@ const Token* token_stream_advance_if(TokenStream* ts, TokenKind expected) {
         return token_stream_get_curr(ts);
     }
 
-    String msg = string_from_fmt("Expected `%s`, but got `%s`",
-        get_token_kind_value(expected),
-        get_token_kind_value(token->kind)
-    );
-    report_collector_append_report_trace(ts->scanner.rc, msg, token->loc);
+    REPORT_COLLECTOR_TRACE_SYNTAX(ts->scanner.rc, token->loc, "Expected any `%s`, but got `%s`", get_token_kind_value(expected), get_token_kind_value(token->kind));
 
     return token;
 }
@@ -189,11 +177,7 @@ const Token* token_stream_advance_if_any_impl(TokenStream* ts, const TokenKind e
         }
     }
 
-    String msg = string_from_fmt("Expected any [%.*s], but got `%s`",
-        (i32)sb.len, sb.buf,
-        get_token_kind_value(token->kind)
-    );
-    report_collector_append_report_trace(ts->scanner.rc, msg, token->loc);
+    REPORT_COLLECTOR_TRACE_SYNTAX(ts->scanner.rc, token->loc, "Expected any [%.*s], but got `%s`", (i32)sb.len, sb.buf, get_token_kind_value(token->kind));
 
     sb_destroy(&sb);
 

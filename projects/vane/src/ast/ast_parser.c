@@ -2,24 +2,10 @@
 
 #pragma region DIAGNOSTIC
 
-#define REPORT(SEVERITY, LOC, FORMAT, ...) do { \
-    String _msg = string_from_fmt(FORMAT, ##__VA_ARGS__); \
-    report_collector_append_report(ast_parser->rc, SEVERITY, _msg, LOC); \
-} while (false)
-
-#define REPORT_INFO(LOC, FORMAT, ...)  REPORT(DIAG_SEVERITY_INFO, LOC, FORMAT, ##__VA_ARGS__)
-#define REPORT_WARN(LOC, FORMAT, ...)  REPORT(DIAG_SEVERITY_WARN, LOC, FORMAT, ##__VA_ARGS__)
-#define REPORT_ERROR(LOC, FORMAT, ...) REPORT(DIAG_SEVERITY_ERROR, LOC, FORMAT, ##__VA_ARGS__)
-
-#define REPORT_FAILED_TO_PARSE_STR(LOC, STR) REPORT_ERROR(LOC, "Failed to parse `%s`", STR)
+#define REPORT_FAILED_TO_PARSE_STR(LOC, STR) REPORT_COLLECTOR_REPORT_SYNTAX_ERROR(ast_parser->rc, LOC, "Failed to parse `%s`", STR)
 #define REPORT_FAILED_TO_PARSE_AST(LOC, AST) REPORT_FAILED_TO_PARSE_STR(LOC, get_ast_node_kind_name(AST))
 
-#define TRACE(LOC, FORMAT, ...) do { \
-    String _msg = string_from_fmt(FORMAT, ##__VA_ARGS__); \
-    report_collector_append_report_trace(ast_parser->rc, _msg, LOC); \
-} while (false)
-
-#define TRACE_FAILED_TO_PARSE_STR(LOC, STR) TRACE(LOC, "Failed to parse `%s`", STR)
+#define TRACE_FAILED_TO_PARSE_STR(LOC, STR) REPORT_COLLECTOR_TRACE_SYNTAX(ast_parser->rc, LOC, "Failed to parse `%s`", STR)
 #define TRACE_FAILED_TO_PARSE_AST(LOC, AST) TRACE_FAILED_TO_PARSE_STR(LOC, get_ast_node_kind_name(AST))
 
 #pragma endregion
@@ -284,7 +270,7 @@ static ASTNode* ast_parser_parse_type_impl(ASTParser* ast_parser) {
         break;
     }
 
-    TRACE(token->loc, "Expected beginning of `%s`, but got `%s`",
+    REPORT_COLLECTOR_TRACE_SYNTAX(ast_parser->rc, token->loc, "Expected beginning of `%s`, but got `%s`",
         get_ast_node_kind_name(AST_NODE_GROUP_TYPE),
         get_token_kind_value(token->kind)
     );
@@ -307,7 +293,7 @@ ASTNode* ast_parser_parse_type_builtin(ASTParser* ast_parser) {
 
     const Token* token = token_stream_peek_next(ast_parser->ts);
     if (!is_token_kind_a_builtin_type(token->kind)) {
-        TRACE(token->loc, "Expected builtin type, but got `%s`",
+        REPORT_COLLECTOR_TRACE_SYNTAX(ast_parser->rc, token->loc, "Expected builtin type, but got `%s`",
             get_token_kind_value(token->kind)
         );
         TRACE_FAILED_TO_PARSE_AST(token->loc, AST_NODE_TYPE_BUILTIN);
@@ -399,6 +385,27 @@ ASTNode* ast_parser_parse_type_arr(ASTParser* ast_parser) {
     }
 
     return ast_node_type_arr_create(size_expr, type, loc);
+}
+
+ASTNode* ast_parser_parse_package_entity(ASTParser* ast_parser) {
+    assert(ast_parser != NULL);
+
+    const Token* token = token_stream_peek_next(ast_parser->ts);
+    switch (token->kind) {
+    case TOKEN_KEYWORD_PACKAGE:   return ast_parser_parse_package_decl(ast_parser);
+    case TOKEN_KEYWORD_IMPORT:    return ast_parser_parse_import_decl(ast_parser);
+    case TOKEN_KEYWORD_TYPEALIAS: return ast_parser_parse_typealias_decl(ast_parser);
+    case TOKEN_KEYWORD_FUN:       return ast_parser_parse_fun_decl(ast_parser);
+    default:
+        break;
+    }
+
+    REPORT_COLLECTOR_TRACE_SYNTAX(ast_parser->rc, token->loc, "Unexpected token `%s` at package scope",
+        get_token_kind_value(token->kind)
+    );
+    REPORT_FAILED_TO_PARSE_AST(token->loc, AST_NODE_GROUP_PACKAGE_ENTITY);
+
+    return ast_node_error_create(AST_NODE_GROUP_PACKAGE_ENTITY, NULL, token->loc);
 }
 
 ASTNode* ast_parser_parse_package_decl(ASTParser* ast_parser) {
@@ -685,7 +692,7 @@ ASTNode* ast_parser_parse_stmt(ASTParser* ast_parser) {
         }
     }
 
-    TRACE(token->loc, "Expected beginning of `%s`, but got `%s`",
+    REPORT_COLLECTOR_TRACE_SYNTAX(ast_parser->rc, token->loc, "Expected beginning of `%s`, but got `%s`",
         get_ast_node_kind_name(AST_NODE_GROUP_STMT),
         get_token_kind_value(token->kind)
     );
@@ -1207,7 +1214,7 @@ ASTNode* ast_parser_parse_expr_nud(ASTParser* ast_parser) {
         break;
     }
 
-    TRACE(token->loc, "Expected beginning of `%s`, but got `%s`",
+    REPORT_COLLECTOR_TRACE_SYNTAX(ast_parser->rc, token->loc, "Expected beginning of `%s`, but got `%s`",
         get_ast_node_kind_name(AST_NODE_GROUP_EXPR_NUD),
         get_token_kind_value(token->kind)
     );
@@ -1234,7 +1241,7 @@ ASTNode* ast_parser_parse_expr_led(ASTParser* ast_parser, ASTNode* lhs, OpPreced
         break;
     }
 
-    TRACE(token->loc, "Expected beginning of `%s`, but got `%s`",
+    REPORT_COLLECTOR_TRACE_SYNTAX(ast_parser->rc, token->loc, "Expected beginning of `%s`, but got `%s`",
         get_ast_node_kind_name(AST_NODE_GROUP_EXPR_LED),
         get_token_kind_value(token->kind)
     );
@@ -1253,7 +1260,7 @@ ASTNode* ast_parser_parse_expr_binary(ASTParser* ast_parser, ASTNode* lhs, OpPre
 
     if (!is_token_kind_a_binop(token->kind)) {
         ast_node_destroy(lhs);
-        TRACE(token->loc, "Expected binary operator, but got `%s`",
+        REPORT_COLLECTOR_TRACE_SYNTAX(ast_parser->rc, token->loc, "Expected binary operator, but got `%s`",
             get_token_kind_value(token->kind)
         );
         TRACE_FAILED_TO_PARSE_AST(loc, AST_NODE_EXPR_BINARY);
@@ -1284,7 +1291,7 @@ ASTNode* ast_parser_parse_expr_prefix_unary(ASTParser* ast_parser) {
 
     const Token* token = token_stream_peek_next(ast_parser->ts);
     if (!is_token_kind_a_prefix_unop(token->kind)) {
-        TRACE(token->loc, "Expected prefix unary operator, but got `%s`",
+        REPORT_COLLECTOR_TRACE_SYNTAX(ast_parser->rc, token->loc, "Expected prefix unary operator, but got `%s`",
             get_token_kind_value(token->kind)
         );
         TRACE_FAILED_TO_PARSE_AST(token->loc, AST_NODE_EXPR_PREFIX_UNARY);
@@ -1317,7 +1324,7 @@ ASTNode* ast_parser_parse_expr_postfix_unary(ASTParser* ast_parser, ASTNode* lhs
 
     if (!is_token_kind_a_postfix_unop(token->kind)) {
         ast_node_destroy(lhs);
-        TRACE(loc, "Expected postfix unary operator, but got `%s`",
+        REPORT_COLLECTOR_TRACE_SYNTAX(ast_parser->rc, loc, "Expected postfix unary operator, but got `%s`",
             get_token_kind_value(token->kind)
         );
         TRACE_FAILED_TO_PARSE_AST(loc, AST_NODE_EXPR_POSTFIX_UNARY);
@@ -1511,7 +1518,7 @@ ASTNode* ast_parser_parse_expr_literal(ASTParser* ast_parser) {
 
     const Token* token = token_stream_peek_next(ast_parser->ts);
     if (!is_token_kind_a_literal(token->kind)) {
-        TRACE(token->loc, "Expected literal, but got `%s`",
+        REPORT_COLLECTOR_TRACE_SYNTAX(ast_parser->rc, token->loc, "Expected literal, but got `%s`",
             get_token_kind_value(token->kind)
         );
         TRACE_FAILED_TO_PARSE_AST(token->loc, AST_NODE_EXPR_LITERAL);

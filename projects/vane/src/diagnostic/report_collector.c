@@ -1,6 +1,7 @@
 #include "vane/diagnostic/report_collector.h"
 
 #include <stdio.h>
+#include <stdarg.h>
 
 #define REPORT_COLLECTOR_DEFAULT_REPORTS_SIZE 4
 #define REPORT_DEFAULT_TRACE_SIZE 4
@@ -26,19 +27,30 @@ void report_collector_destroy(ReportCollector* rc) {
     vector_destroy(&rc->trace);
 }
 
-void report_collector_append_report(ReportCollector* rc, DiagnosticSeverity severity, String msg, SourceLoc loc) {
-    assert(rc != NULL);
+void report_collector_append_report_fmt(ReportCollector* rc, DiagnosticKind kind, DiagnosticSeverity severity, SourceLoc loc, const char* format, ...) {
+    assert(rc != NULL && format != NULL);
 
     rc->severity_count[severity]++;
+    rc->kind_count[kind]++;
 
-    Report* report = report_create(severity, msg, loc, rc->trace);
+    va_list va;
+    va_start(va, format);
+    String msg = string_from_fmt_va(format, va);
+    va_end(va);
+
+    Report* report = report_create(kind, severity, msg, loc, rc->trace);
     rc->trace = (Vector){ 0 };
 
     vector_push_back(&rc->reports, &report);
 }
 
-void report_collector_append_report_trace(ReportCollector* rc, String msg, SourceLoc loc) {
-    assert(rc != NULL);
+void report_collector_append_report_trace_fmt(ReportCollector* rc, DiagnosticKind kind, SourceLoc loc, const char* format, ...) {
+    assert(rc != NULL && format != NULL);
+
+    va_list va;
+    va_start(va, format);
+    String msg = string_from_fmt_va(format, va);
+    va_end(va);
 
     if (rc->trace.raw == NULL) {
         rc->trace = vector_create(
@@ -46,7 +58,7 @@ void report_collector_append_report_trace(ReportCollector* rc, String msg, Sourc
             VECTOR_ITEM_SPECS(ReportTrace, &report_trace_destroy)
         );
     }
-    ReportTrace trace = report_trace_create(msg, loc);
+    ReportTrace trace = report_trace_create(kind, msg, loc);
     vector_push_back(&rc->trace, &trace);
 }
 

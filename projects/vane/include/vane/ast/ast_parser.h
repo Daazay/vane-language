@@ -40,6 +40,8 @@ ASTNode* ast_parser_parse_type_arr(ASTParser* ast_parser);
 
 /*...............................PACKAGE............................*/
 
+ASTNode* ast_parser_parse_package_entity(ASTParser* ast_parser);
+
 ASTNode* ast_parser_parse_package_decl(ASTParser* ast_parser);
 
 ASTNode* ast_parser_parse_import_decl(ASTParser* ast_parser);

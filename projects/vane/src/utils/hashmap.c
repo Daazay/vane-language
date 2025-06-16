@@ -301,3 +301,27 @@ bool hashmap_it_next(const Hashmap* map, HashmapIterator* it) {
 
     return false;
 }
+
+const void* hashmap_get_key_ref(const Hashmap* map, const void* key) {
+    assert(map != NULL && key != NULL);
+
+    void* entry = hashmap_get_entry(map, key);
+    if (entry == NULL) {
+        return NULL;
+    }
+
+    const void* entry_key = get_entry_key(entry);
+    return COLLECTION_ITEM_CAST(map->key_specs.common, entry_key);
+}
+
+void* hashmap_get_value_ref(const Hashmap* map, const void* key) {
+    assert(map != NULL && key != NULL);
+
+    void* entry = hashmap_get_entry(map, key);
+    if (entry == NULL) {
+        return NULL;
+    }
+
+    void* entry_value = get_entry_value(map, entry);
+    return COLLECTION_ITEM_CAST(map->value_specs, entry_value);
+}
