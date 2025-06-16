@@ -895,7 +895,7 @@ ASTNode* ast_parser_parse_stmt_branch(ASTParser* ast_parser, bool start_with_els
     }
 
     if (is_else_br) {
-        token = token_stream_advance_if(ast_parser->ts, TOKEN_KEYWORD_END);
+        token = token_stream_expect(ast_parser->ts, TOKEN_KEYWORD_END);
         loc.end = token->loc.end;
 
         if (token->kind != TOKEN_KEYWORD_END) {
@@ -909,10 +909,7 @@ ASTNode* ast_parser_parse_stmt_branch(ASTParser* ast_parser, bool start_with_els
         token = token_stream_expect_any(ast_parser->ts, TOKEN_KEYWORD_ELSE, TOKEN_KEYWORD_END);
         loc.end = token->loc.end;
 
-        if (token->kind == TOKEN_KEYWORD_END) {
-            token_stream_move_forward(ast_parser->ts);
-        }
-        else if (token->kind != TOKEN_KEYWORD_ELSE) {
+        if (token->kind != TOKEN_KEYWORD_END && token->kind != TOKEN_KEYWORD_ELSE) {
             ast_node_destroy(expr);
             vector_destroy(&block);
             REPORT_FAILED_TO_PARSE_AST(token->loc, AST_NODE_STMT_BRANCH);
@@ -952,7 +949,18 @@ ASTNode* ast_parser_parse_stmt_condition(ASTParser* ast_parser) {
         if (branch->as.stmt_branch.expr == NULL) {
             break;
         }
-    } while (!token_stream_is_end(ast_parser->ts) && (token_stream_get_curr(ast_parser->ts)->kind != TOKEN_KEYWORD_END));
+        token = token_stream_peek_next(ast_parser->ts);
+        if (token->kind == TOKEN_KEYWORD_END) {
+            break;
+        }
+    } while (!token_stream_is_end(ast_parser->ts));
+
+    token = token_stream_advance_if(ast_parser->ts, TOKEN_KEYWORD_END);
+    if (token->kind != TOKEN_KEYWORD_END) {
+        vector_destroy(&branches);
+        REPORT_FAILED_TO_PARSE_AST(token->loc, AST_NODE_STMT_CONDITION);
+        return ast_node_error_create(AST_NODE_STMT_CONDITION, NULL, token->loc);
+    }
 
     return ast_node_stmt_condition_create(branches, loc);
 }
