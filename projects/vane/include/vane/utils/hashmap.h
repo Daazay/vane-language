@@ -58,7 +58,7 @@ void hashmap_destroy(Hashmap* map);
 
 void hashmap_resize(Hashmap* map, u32 new_cap);
 
-void hashmap_put(Hashmap* map, const void* key, const void* value);
+HashmapEntry hashmap_put(Hashmap* map, const void* key, const void* value);
 
 void* hashmap_at(Hashmap* map, const void* key);
 
@@ -67,3 +67,7 @@ bool hashmap_contains(Hashmap* map, const void* key);
 void hashmap_remove(Hashmap* map, const void* key);
 
 bool hashmap_it_next(const Hashmap* map, HashmapIterator* it);
+
+const void* hashmap_get_key_ref(const Hashmap* map, const void* key);
+
+void* hashmap_get_value_ref(const Hashmap* map, const void* key);

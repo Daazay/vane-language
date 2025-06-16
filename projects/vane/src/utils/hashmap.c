@@ -10,12 +10,7 @@
 #define HASHMAP_INIT_BUCKET_SIZE 4
 #define HASHMAP_DEFAULT_CAPACITY 8
 #define HASHMAP_CAPACITY_MULT    2
-#define HASHMAP_GROWTH_FACTOR    2
-
-#define GET_ENTRY_SIZE(MAP) (sizeof(u32) + MAP->key_specs.common.size + MAP->value_specs.size)
-#define GET_ENTRY_HASH(ENTRY) (*(u32*)ENTRY)
-#define GET_ENTRY_KEY_P(ENTRY) ((byte*)ENTRY + sizeof(u32))
-#define GET_ENTRY_VALUE_P(MAP, ENTRY) (GET_ENTRY_KEY_P(ENTRY) + MAP->key_specs.common.size)
+#define HASHMAP_LOAD_FACTOR      2
 
 static inline u64 get_entry_size(const Hashmap* map) {
     return sizeof(u32) + map->key_specs.common.size + map->value_specs.size;
@@ -33,12 +28,8 @@ static inline void* get_entry_value(const Hashmap* map, void* entry) {
     return (byte*)entry + sizeof(u32) + map->key_specs.common.size;
 }
 
-static inline void hashmap_bucket_init(const Hashmap* map, HashmapBucket* bucket) {
-    *bucket = vector_create(HASHMAP_INIT_BUCKET_SIZE, (VectorItemSpecs) {
-        .size = (u32)get_entry_size(map),
-        .is_ptr = true,
-        .destroy_fn = NULL,
-    });
+static inline void hashmap_bucket_init(HashmapBucket* bucket) {
+    *bucket = vector_create(HASHMAP_INIT_BUCKET_SIZE, VECTOR_ITEM_SPECS(void*, NULL));
 }
 
 static void hashmap_entry_destroy(const Hashmap* map, void* entry) {
@@ -58,41 +49,34 @@ static void hashmap_entry_destroy(const Hashmap* map, void* entry) {
     free(entry);
 }
 
-static void* hashmap_get_entry(const Hashmap* map, const void* key_) {
-    const void* key1 = COLLECTION_ITEM_CAST(map->key_specs.common, key_);
+static void* hashmap_get_entry(const Hashmap* map, const void* key1_) {
+    assert(map != NULL && key1_ != NULL);
 
+    const void* key1 = COLLECTION_ITEM_CAST(map->key_specs.common, key1_);
     const u32 computed_hash = map->key_specs.hash_fn(key1);
     const u32 idx = computed_hash % map->cap;
 
     const HashmapBucket* bucket = &map->buckets[idx];
-    if (bucket->raw != NULL) {
-        for (u32 i = 0; i < bucket->size; ++i) {
-            void* entry = vector_at(bucket, i);
 
-            if (computed_hash == get_entry_hash(entry)) {
-                const void* key2_ = get_entry_key(entry);
-                const void* key2 = COLLECTION_ITEM_CAST(map->key_specs.common, key2_);
-
-                if (map->key_specs.eq_fn(key1, key2)) {
-                    return entry;
-                }
-            }
-        }
+    if (bucket->raw == NULL) {
+        return NULL;
     }
 
+    for (u32 i = 0; i < bucket->size; ++i) {
+        void* entry = vector_at(bucket, i);
+
+        if (computed_hash != get_entry_hash(entry)) {
+            continue;
+        }
+
+        const void* key2_ = get_entry_key(entry);
+        const void* key2 = COLLECTION_ITEM_CAST(map->key_specs.common, key2_);
+
+        if (map->key_specs.eq_fn(key1, key2)) {
+            return entry;
+        }
+    }
     return NULL;
-}
-
-static void hashmap_it_fill(const Hashmap* map, HashmapIterator* it) {
-    void* entry = vector_at(&map->buckets[it->next_bucket_idx], it->next_entry_idx);
-
-    it->entry.hash = get_entry_hash(entry);
-
-    void* entry_key = get_entry_key(entry);
-    void* entry_value = get_entry_value(map, entry);
-
-    it->entry.key = COLLECTION_ITEM_CAST(map->key_specs.common, entry_key);
-    it->entry.value = COLLECTION_ITEM_CAST(map->value_specs, entry_value);
 }
 
 #pragma endregion
@@ -132,13 +116,17 @@ void hashmap_destroy(Hashmap* map) {
 
     for (u32 i = 0; i < map->cap; ++i) {
         HashmapBucket* bucket = &map->buckets[i];
-        if (bucket->raw != NULL) {
-            for (u32 j = 0; j < bucket->size; ++j) {
-                void* entry = vector_at(bucket, j);
-                hashmap_entry_destroy(map, entry);
-            }
-            vector_destroy(bucket);
+
+        if (bucket->raw == NULL) {
+            continue;
         }
+
+        for (u32 j = 0; j < bucket->size; ++j) {
+            void* entry = vector_at(bucket, j);
+            hashmap_entry_destroy(map, entry);
+        }
+
+        vector_destroy(bucket);
     }
 
     free(map->buckets);
@@ -148,41 +136,49 @@ void hashmap_destroy(Hashmap* map) {
     map->cap = 0;
 }
 
+#include <stdio.h>
+
 void hashmap_resize(Hashmap* map, u32 new_cap) {
     assert(map != NULL && new_cap > 0);
+
+    printf("hashmap [%lld] - resize from %d to %d\n", (u64)map, map->cap, new_cap);
 
     if (new_cap == map->cap) {
         return;
     }
 
-    HashmapBucket* buckets = calloc(new_cap, sizeof(HashmapBucket));
-    assert(buckets != NULL);
+    HashmapBucket* new_buckets = calloc(new_cap, sizeof(HashmapBucket));
+    assert(new_buckets != NULL);
 
     for (u32 i = 0; i < map->cap; ++i) {
         HashmapBucket* bucket = &map->buckets[i];
 
-        if (bucket->raw != NULL) {
-            for (u32 j = 0; j < bucket->size; ++j) {
-                void* entry = vector_at(bucket, j);
-                const u32 new_idx = get_entry_hash(entry) % new_cap;
-
-                if (buckets[new_idx].raw == NULL) {
-                    hashmap_bucket_init(map, &buckets[new_idx]);
-                }
-
-                vector_push_back(&bucket[new_idx], &entry);
-            }
-            vector_destroy(bucket);
+        if (bucket->raw == NULL) {
+            continue;
         }
+
+        for (u32 j = 0; j < bucket->size; ++j) {
+            void* entry = vector_at(bucket, j);
+            const u32 new_idx = get_entry_hash(entry) % new_cap;
+
+            HashmapBucket* new_bucket = &new_buckets[new_idx];
+
+            if (new_bucket->raw == NULL) {
+                hashmap_bucket_init(new_bucket);
+            }
+
+            vector_push_back(new_bucket, &entry);
+        }
+        vector_destroy(bucket);
     }
 
     free(map->buckets);
-    map->buckets = buckets;
 
+    map->buckets = new_buckets;
     map->cap = new_cap;
 }
 
-void hashmap_put(Hashmap* map, const void* key, const void* value) {
+HashmapEntry hashmap_put(Hashmap* map, const void* key, const void* value) {
     assert(map != NULL && key != NULL);
 
     void* entry = hashmap_get_entry(map, key);
@@ -191,50 +187,63 @@ void hashmap_put(Hashmap* map, const void* key, const void* value) {
         if (map->value_specs.destroy_fn != NULL) {
             map->value_specs.destroy_fn(COLLECTION_ITEM_CAST(map->value_specs, entry_value));
         }
-        if (value == NULL) {
-            memset(entry_value, 0, map->value_specs.size);
-        }
-        else {
+        if (value != NULL) {
             memcpy(entry_value, value, map->value_specs.size);
         }
-        return;
+        else {
+            memset(entry_value, 0, map->value_specs.size);
+        }
+
+        return (HashmapEntry) {
+            .hash = get_entry_hash(entry),
+            .key = COLLECTION_ITEM_CAST(map->key_specs.common, get_entry_key(entry)),
+            .value = COLLECTION_ITEM_CAST(map->value_specs, entry_value)
+        };
     }
 
-    if (map->size >= map->cap * HASHMAP_GROWTH_FACTOR) {
-        hashmap_resize(map, map->size * HASHMAP_CAPACITY_MULT);
+    if (map->size >= map->cap * HASHMAP_LOAD_FACTOR) {
+        hashmap_resize(map, map->cap * HASHMAP_CAPACITY_MULT);
     }
 
     const void* key1 = COLLECTION_ITEM_CAST(map->key_specs.common, key);
-
     const u32 computed_hash = map->key_specs.hash_fn(key1);
     const u32 idx = computed_hash % map->cap;
 
     if (map->buckets[idx].raw == NULL) {
-        hashmap_bucket_init(map, &map->buckets[idx]);
+        hashmap_bucket_init(&map->buckets[idx]);
     }
 
-    entry = malloc(get_entry_size(map));
+    const u64 entry_size = get_entry_size(map);
+
+    entry = malloc(entry_size);
     assert(entry != NULL);
+
 
     *(u32*)entry = computed_hash;
     memcpy(get_entry_key(entry), key, map->key_specs.common.size);
-    memcpy(get_entry_value(map, entry), value, map->value_specs.size);
+
+    if (value != NULL) {
+        memcpy(get_entry_value(map, entry), value, map->value_specs.size);
+    }
+    else {
+        memset(get_entry_value(map, entry), 0, map->value_specs.size);
+    }
 
     vector_push_back(&map->buckets[idx], &entry);
-
     map->size++;
+
+    return (HashmapEntry) {
+        .hash = get_entry_hash(entry),
+        .key = COLLECTION_ITEM_CAST(map->key_specs.common, get_entry_key(entry)),
+        .value = COLLECTION_ITEM_CAST(map->value_specs, get_entry_value(map, entry))
+    };
 }
 
 void* hashmap_at(Hashmap* map, const void* key) {
     assert(map != NULL && key != NULL);
 
     void* entry = hashmap_get_entry(map, key);
-    if (entry == NULL) {
-        return NULL;
-    }
-
-    void* entry_value = get_entry_value(map, entry);
-    return COLLECTION_ITEM_CAST(map->value_specs, entry_value);
+    return entry ? COLLECTION_ITEM_CAST(map->value_specs, get_entry_value(map, entry)) : NULL;
 }
 
 bool hashmap_contains(Hashmap* map, const void* key) {
@@ -247,56 +256,54 @@ void hashmap_remove(Hashmap* map, const void* key) {
     assert(map != NULL && key != NULL);
 
     const void* key1 = COLLECTION_ITEM_CAST(map->key_specs.common, key);
-
     const u32 computed_hash = map->key_specs.hash_fn(key1);
     const u32 idx = computed_hash % map->cap;
 
     HashmapBucket* bucket = &map->buckets[idx];
 
-    if (bucket->raw != NULL) {
-        for (u32 i = 0; i < bucket->size; ++i) {
-            void* entry = vector_at(bucket, i);
+    if (bucket->raw == NULL) {
+        return;
+    }
 
-            if (computed_hash == get_entry_hash(entry)) {
-                const void* entry_key = get_entry_key(entry);
-                const void* key2 = COLLECTION_ITEM_CAST(map->key_specs.common, entry_key);
+    for (u32 i = 0; i < bucket->size; ++i) {
+        void* entry = vector_at(bucket, i);
 
-                if (map->key_specs.eq_fn(key1, key2)) {
-                    hashmap_entry_destroy(map, entry);
-                    vector_remove(bucket, i);
-                    map->size--;
-                    return;
-                }
-            }
+        if (computed_hash != get_entry_hash(entry)) {
+            continue;
         }
+
+        const void* entry_key = get_entry_key(entry);
+        const void* key2 = COLLECTION_ITEM_CAST(map->key_specs.common, entry_key);
+
+        if (!map->key_specs.eq_fn(key1, key2)) {
+            continue;
+        }
+
+        hashmap_entry_destroy(map, entry);
+        vector_remove(bucket, i);
+        map->size--;
+        return;
     }
 }
 
 bool hashmap_it_next(const Hashmap* map, HashmapIterator* it) {
     assert(map != NULL && it != NULL);
 
-    if (it->next_bucket_idx >= map->cap) {
-        return false;
-    }
-
-    const HashmapBucket* bucket = &map->buckets[it->next_bucket_idx];
-    if ((bucket->raw != NULL) && (it->next_entry_idx < bucket->size)) {
-        hashmap_it_fill(map, it);
-        it->next_entry_idx++;
-        return true;
-    }
-
-    it->next_bucket_idx++;
-    it->next_entry_idx = 0;
-
     while (it->next_bucket_idx < map->cap) {
-        bucket = &map->buckets[it->next_bucket_idx];
-        if (bucket->raw != NULL && bucket->size > 0) {
-            hashmap_it_fill(map, it);
-            it->next_entry_idx++;
+        HashmapBucket* bucket = &map->buckets[it->next_bucket_idx];
+
+        if (bucket->raw != NULL && it->next_entry_idx < bucket->size) {
+            void* entry = vector_at(bucket, it->next_entry_idx++);
+
+            it->entry.hash = get_entry_hash(entry);
+            it->entry.key = COLLECTION_ITEM_CAST(map->key_specs.common, get_entry_key(entry));
+            it->entry.value = COLLECTION_ITEM_CAST(map->value_specs, get_entry_value(map, entry));
+
             return true;
         }
+
         it->next_bucket_idx++;
+        it->next_entry_idx = 0;
     }
 
     return false;
@@ -306,22 +313,12 @@ const void* hashmap_get_key_ref(const Hashmap* map, const void* key) {
     assert(map != NULL && key != NULL);
 
     void* entry = hashmap_get_entry(map, key);
-    if (entry == NULL) {
-        return NULL;
-    }
-
-    const void* entry_key = get_entry_key(entry);
-    return COLLECTION_ITEM_CAST(map->key_specs.common, entry_key);
+    return entry ? COLLECTION_ITEM_CAST(map->key_specs.common, get_entry_key(entry)) : NULL;
 }
 
 void* hashmap_get_value_ref(const Hashmap* map, const void* key) {
     assert(map != NULL && key != NULL);
 
     void* entry = hashmap_get_entry(map, key);
-    if (entry == NULL) {
-        return NULL;
-    }
-
-    void* entry_value = get_entry_value(map, entry);
-    return COLLECTION_ITEM_CAST(map->value_specs, entry_value);
+    return entry ? COLLECTION_ITEM_CAST(map->value_specs, get_entry_value(map, entry)) : NULL;
 }

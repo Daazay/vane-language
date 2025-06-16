@@ -4,13 +4,15 @@
 
 struct TestScanner {
     ReportCollector rc;
+    String path;
     FileContent fc;
     Token token;
 };
 
 UTEST_F_SETUP(TestScanner) {
     utest_fixture->rc = report_collector_create(true);
-    utest_fixture->fc = (FileContent){ 0 };
+    utest_fixture->path = (String){ .text = "<source>", .len = 9 };
+    utest_fixture->fc = (FileContent){ .path = &utest_fixture->path };
     utest_fixture->token = (Token){ 0 };
 }
 

@@ -7,6 +7,65 @@
 #include <vane/cfg/cfg_builder.h>
 #include <vane/cfg/visitors/cfg_dot_printer.h>
 
+u32 indent = 0;
+
+void print_indent() {
+    for (u32 i = 0; i < indent; ++i) {
+        printf("  ");
+    }
+}
+
+void print_package_hierarchy(const Package* pkg) {
+    indent++;
+
+    print_indent();
+    printf("[%.*s]:\n", (i32)pkg->name.len, pkg->name.text);
+
+    indent++;
+    if (pkg->source_files.size > 0) {
+        print_indent();
+        printf("files:\n");
+
+        indent++;
+        HashmapIterator sf_it = { 0 };
+        while (hashmap_it_next(&pkg->source_files, &sf_it)) {
+            const String* path = sf_it.entry.key;
+
+            if (path == NULL) {
+                continue;
+            }
+
+            print_indent();
+            printf("- %.*s\n", (i32)path->len, path->text);
+        }
+        indent--;
+    }
+
+    if (pkg->subpackages.size > 0) {
+        print_indent();
+        printf("subpackages:\n");
+
+        //HashmapIterator sf_it = { 0 };
+        //while (hashmap_it_next(&pkg->subpackages, &sf_it)) {
+        //    const Package* subpkg = sf_it.entry.value;
+
+        //    if (subpkg == NULL) {
+        //        continue;
+        //    }
+
+        //    print_package_hierarchy(subpkg);
+        //}
+
+        indent++;
+        for (u32 i = 0; i < pkg->subpackages.size; ++i) {
+            const Package* subpkg = vector_at(&pkg->subpackages, i);
+            print_package_hierarchy(subpkg);
+        }
+        indent--;
+    }
+    indent -= 2;
+}
+
 int main(int argc, char** argv) {
     if (argc < 2) {
         print_usage(argv[0]);
@@ -29,26 +88,28 @@ int main(int argc, char** argv) {
 
     Package* package = compiler_load_package(&compiler, &build_options.root_path);
 
-    HashmapIterator pkg_it = {0};
-    while (hashmap_it_next(&compiler.packages, &pkg_it)) {
-        HashmapEntry pkg_entry = pkg_it.entry;
-        const String* pkg_path = pkg_entry.key;
-        const Package* pkg = pkg_entry.value;
+    print_package_hierarchy(package);
 
-        printf("pkg [%.*s]:\n", (i32)pkg->name.len, pkg->name.text);
+    //HashmapIterator pkg_it = { 0 };
+    //while (hashmap_it_next(&compiler.packages, &pkg_it)) {
+    //    HashmapEntry pkg_entry = pkg_it.entry;
+    //    const String* pkg_path = pkg_entry.key;
+    //    const Package* pkg = pkg_entry.value;
 
-        printf("    files:\n");
-        if (pkg != NULL) {
-            HashmapIterator sf_it = { 0 };
-            while (hashmap_it_next(&pkg->source_files, &sf_it)) {
-                HashmapEntry sf_entry = sf_it.entry;
-                const String* sf_path = sf_entry.key;
-                const SourceFile* sf = sf_entry.value;
+    //    printf("pkg [%.*s]:\n", (i32)pkg->name.len, pkg->name.text);
 
-                printf("    file [%.*s]:\n", (i32)sf_path->len, sf_path->text);
-            }
-        }
-    }
+    //    printf("    files:\n");
+    //    if (pkg != NULL) {
+    //        HashmapIterator sf_it = { 0 };
+    //        while (hashmap_it_next(&pkg->source_files, &sf_it)) {
+    //            HashmapEntry sf_entry = sf_it.entry;
+    //            const String* sf_path = sf_entry.key;
+    //            const SourceFile* sf = sf_entry.value;
+
+    //            printf("    file [%.*s]:\n", (i32)sf_path->len, sf_path->text);
+    //        }
+    //    }
+    //}
 
     report_collector_print(&compiler.rc);
 

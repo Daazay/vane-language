@@ -15,7 +15,9 @@ enum BuildCommand {
 struct BuildOptions {
     BuildCommand command;
 
+    String cwd_dir;
     String root_path;
+
     bool colored_output;
 
     String output_dir;

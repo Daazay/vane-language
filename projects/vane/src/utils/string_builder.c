@@ -20,14 +20,15 @@ static void sb_append_cstr_impl(StringBuilder* sb, const char* cstr, u64 len, bo
     }
 
     if (left) {
-        memmove(sb->buf + len, sb->buf, sb->len + 1);
+        memmove(sb->buf + len, sb->buf, sb->len);
         memcpy(sb->buf, cstr, len);
     }
     else {
-        memcpy(sb->buf + sb->len, cstr, len + 1);
+        memcpy(sb->buf + sb->len, cstr, len);
     }
 
     sb->len = sb->len + len;
+    sb->buf[sb->len] = '\0';
 }
 
 static void sb_append_format_va_impl(StringBuilder* sb, const char* format, va_list _va, bool left) {

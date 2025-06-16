@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "vane/utils/path.h"
 #include "vane/utils/terminal.h"
 
 #define PRINT_LINE(msg, ...) printf(msg "\n", ##__VA_ARGS__)
@@ -29,7 +30,7 @@ struct ArgParser {
     BuildOptions* options;
 
     const u32 args_count;
-    const char** args;
+    char** args;
 
     u32 idx;
     const char* current_arg;
@@ -132,6 +133,7 @@ bool build_options_parse_args(BuildOptions* options, int argc, char** argv) {
 
     options->command = BUILD_COMMAND_MISSING;
     options->output_dir = string_from_cstr("./build");
+    options->cwd_dir = get_current_working_dir();
     options->root_path = (String){ 0 };
     options->colored_output = is_terminal_support_colors();
 
@@ -182,7 +184,7 @@ bool build_options_parse_args(BuildOptions* options, int argc, char** argv) {
 void build_options_destroy(BuildOptions* options) {
     if (options == NULL) return;
 
+    string_destroy(&options->cwd_dir);
     string_destroy(&options->root_path);
     string_destroy(&options->output_dir);
-
 }

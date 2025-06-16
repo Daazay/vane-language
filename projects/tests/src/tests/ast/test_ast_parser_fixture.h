@@ -6,6 +6,7 @@
 
 struct TestASTParser {
     ReportCollector rc;
+    String path;
     FileContent fc;
     TokenStream ts;
     ASTParser ast_parser;
@@ -14,7 +15,8 @@ struct TestASTParser {
 
 UTEST_F_SETUP(TestASTParser) {
     utest_fixture->rc = report_collector_create(true);
-    utest_fixture->fc = (FileContent){ 0 };
+    utest_fixture->path = (String){ .text = "<source>", .len = 9 };
+    utest_fixture->fc = (FileContent){ .path = &utest_fixture->path };
     utest_fixture->ts = (TokenStream){ 0 };
     utest_fixture->ast_parser = ast_parser_create(&utest_fixture->ts, &utest_fixture->rc);
     utest_fixture->ast_node = NULL;
@@ -26,7 +28,7 @@ UTEST_F_TEARDOWN(TestASTParser) {
     token_stream_destroy(&utest_fixture->ts);
     //file_content_destroy(&utest_fixture->fc);
 
-    report_collector_print(&utest_fixture->rc);
+    //report_collector_print(&utest_fixture->rc);
     report_collector_destroy(&utest_fixture->rc);
 }
 

@@ -59,7 +59,7 @@ UTEST_F(TestFileUtils, file_content_load) {
 
 // iterate directory
 
-static bool iterate_count(const String* name, bool is_dir, u64 size, void* data) {
+static bool iterate_count(const String* dirpath, const String* name, bool is_dir, u64 size, void* data) {
     (*(u64*)data)++;
     return true;
 }
@@ -68,7 +68,7 @@ UTEST_F(TestFileUtils, iterate_directory_empty_path) {
     utest_fixture->path = STRING_EMPTY;
 
     u64 count = 0;
-    IOStatus status = iterate_directory(&utest_fixture->path, (iterate_directory_fn)&iterate_count, &count);
+    IOStatus status = iterate_directory(&utest_fixture->path, &iterate_count, &count);
 
     ASSERT_EQ(status, IO_STATUS_ERR_INVALID_PATH);
     ASSERT_EQ(count, 0);

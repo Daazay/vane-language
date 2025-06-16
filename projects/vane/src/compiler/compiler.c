@@ -31,14 +31,15 @@ struct PackageDirectoryIteratorCtx {
     Vector subpackages;
 };
 
-static bool iterate_package_directory_fn(const String* dirpath, const String* name, bool is_dir, u64 size, struct PackageDirectoryIteratorCtx* ctx) {
+static bool iterate_package_directory_fn(const String* dirpath, const String* name, bool is_dir, u64 size, void* uctx) {
+    struct PackageDirectoryIteratorCtx* ctx = uctx;
+
     // skip hidden/system directories
     if (is_dir && string_has_prefix_cstr(name, ".")) {
         return true;
     }
 
     String new_path = path_join_str(2, (const String *[]) { dirpath, name });
-
 
     if (is_dir) {
         if (ctx->subpackages.raw == NULL) {
@@ -47,17 +48,19 @@ static bool iterate_package_directory_fn(const String* dirpath, const String* na
 
         vector_push_back(&ctx->subpackages, &new_path);
     }
-    else if (!string_has_suffix_cstr(name, ".vn")) {
+    else if (string_has_suffix_cstr(name, ".vn")) {
         // Why? idk. I just want to save the string in the hashmap as a key.
         // If something goes wrong and we can't load/parse the source_file, in which case it will be null,
         // we will still get an entry with this key, so we won't try to load/parse it anymore.
-        SourceFile* source_file = NULL;
 
-        hashmap_put(&ctx->curr_pkg->source_files, &new_path, &source_file);
-        const String* key = hashmap_get_key_ref(&ctx->curr_pkg->source_files, &new_path);
+        // Put new_path in hashmap to store
+        HashmapEntry entry = hashmap_put(&ctx->curr_pkg->source_files, &new_path, NULL);
 
-        source_file = source_file_load(key, &ctx->compiler->rc);
-        hashmap_put(&ctx->curr_pkg->source_files, &new_path, &source_file);
+        SourceFile* source_file = source_file_load(entry.key, &ctx->compiler->rc);
+        hashmap_put(&ctx->curr_pkg->source_files, entry.key, &source_file);
+    }
+    else {
+        string_destroy(&new_path);
     }
     return true;
 }
@@ -76,11 +79,10 @@ Package* compiler_load_package(Compiler* compiler, const String* dirpath) {
     // If something goes wrong and we can't load/parse the package, in which case it will be null,
     // we will still get an entry with this key, so we won't try to load/parse it anymore.
 
-    hashmap_put(&compiler->packages, &abs_path, &pkg);
-    const String* key = hashmap_get_key_ref(&compiler->packages, &abs_path);
-
-    pkg = package_create(key, &compiler->rc);
-    hashmap_put(&compiler->packages, &abs_path, &pkg);
+    // Put abs_path in hashmap to store
+    HashmapEntry entry = hashmap_put(&compiler->packages, &abs_path, NULL);
+    pkg = package_create(entry.key, &compiler->rc);
+    hashmap_put(&compiler->packages, entry.key, &pkg);
 
     struct PackageDirectoryIteratorCtx iter_ctx = {
         .compiler = compiler,
@@ -88,17 +90,17 @@ Package* compiler_load_package(Compiler* compiler, const String* dirpath) {
         .subpackages = (Vector) { 0 },
     };
 
-    IOStatus status = iterate_directory(key, &iterate_package_directory_fn, &iter_ctx);
+    IOStatus status = iterate_directory(&abs_path, &iterate_package_directory_fn, &iter_ctx);
     switch (status) {
     case IO_STATUS_OK: break;
     case IO_STATUS_ERR_INVALID_PATH:
-        REPORT_COLLECTOR_REPORT_IO_ERROR(&compiler->rc, key, "Invalid path.");
+        REPORT_COLLECTOR_REPORT_IO_ERROR(&compiler->rc, entry.key, "Invalid path.");
         return NULL;
     case IO_STATUS_ERR_DIR_NOT_FOUND:
-        REPORT_COLLECTOR_REPORT_IO_ERROR(&compiler->rc, key, "Directory not found.");
+        REPORT_COLLECTOR_REPORT_IO_ERROR(&compiler->rc, entry.key, "Directory not found.");
         return NULL;
     case IO_STATUS_ERR_DIR_READ_FAILED:
-        REPORT_COLLECTOR_REPORT_IO_ERROR(&compiler->rc, key, "Failed to read directory entries.");
+        REPORT_COLLECTOR_REPORT_IO_ERROR(&compiler->rc, entry.key, "Failed to read directory entries.");
         return NULL;
     default:
         unreachable();

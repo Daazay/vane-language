@@ -123,6 +123,7 @@ IOStatus iterate_directory(const String* dirpath, iterate_directory_fn iterate_f
     FindClose(handle);
     return IO_STATUS_OK;
 #else
+    printf("DIR* dir = opendir(\"%s\");\n", dirpath->text);
     DIR* dir = opendir(dirpath->text);
     if (dir == NULL) {
         switch (errno) {
