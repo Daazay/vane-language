@@ -7,6 +7,7 @@ typedef enum DiagnosticKind DiagnosticKind;
 
 enum DiagnosticSeverity {
     DIAG_SEVERITY_NONE,
+    DIAG_SEVERITY_DEBUG,
     DIAG_SEVERITY_INFO,
     DIAG_SEVERITY_WARN,
     DIAG_SEVERITY_ERROR,

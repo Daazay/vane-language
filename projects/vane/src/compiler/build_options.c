@@ -13,6 +13,7 @@ void print_usage(const char* argv0) {
     PRINT_LINE("Usage: %s [GENERAL OPTIONS] COMMAND [ARGUMENTS]", argv0);
     PRINT_LINE("");
     PRINT_LINE("General options:");
+    PRINT_LINE("  --debug              Print debug reports.");
     PRINT_LINE("  --collection <PATH>  Adds collection path.");
     PRINT_LINE("");
     PRINT_LINE("Commands:");
@@ -67,6 +68,11 @@ static bool parse_option(ArgParser* parser) {
 
             PRINT_ERROR_LINE("the argument for 'collection' option was not provided.");
             return false;
+        }
+        else if (match_arg(op, "debug")) {
+            parser->options->debug = true;
+
+            return true;
         }
         break;
     case BUILD_COMMAND_HELP:
@@ -127,6 +133,7 @@ bool build_options_parse_args(BuildOptions* options, int argc, char** argv) {
     options->command = BUILD_COMMAND_MISSING;
     options->root_path = (String){ 0 };
     options->collections = vector_create(4, VECTOR_ITEM_SPECS(String, &string_destroy));
+    options->debug = false;
     options->colored_output = is_terminal_support_colors();
 
     ArgParser arg_parser = {

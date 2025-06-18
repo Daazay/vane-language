@@ -15,11 +15,9 @@ struct ReportCollector {
     u32 kind_count[DIAG_KIND_COUNT];
 
     struct Report* current_report;
-
-    bool colored_output;
 };
 
-ReportCollector report_collector_create(bool colored);
+ReportCollector report_collector_create();
 
 void report_collector_destroy(ReportCollector* rc);
 
@@ -35,12 +33,13 @@ void report_collector_append_report(ReportCollector* rc, DiagnosticKind kind, Di
 
 void report_collector_append_report_from_format(ReportCollector* rc, DiagnosticKind kind, DiagnosticSeverity severity, SourceLoc loc, const char* format, ...);
 
-void report_collector_print_all(const ReportCollector* rc);
+void report_collector_print_all(const ReportCollector* rc, bool colored, bool debug);
 
 #define RC_TRACE(RC, LOC, FORMAT, ...) report_collector_append_trace_from_format(RC, LOC, FORMAT, ##__VA_ARGS__)
 #define RC_NOTE(RC, FORMAT, ...)       report_collector_append_note_from_format(RC, FORMAT, ##__VA_ARGS__)
 
 #define RC_REPORT_IO(RC, SEV, PATH, FORMAT, ...)  report_collector_append_report_from_format(RC, DIAG_KIND_IO, SEV, (SourceLoc) { .path = PATH }, FORMAT, ##__VA_ARGS__)
+#define RC_REPORT_IO_DEBUG(RC, PATH, FORMAT, ...)  RC_REPORT_IO(RC, DIAG_SEVERITY_DEBUG, PATH, FORMAT, ##__VA_ARGS__)
 #define RC_REPORT_IO_INFO(RC, PATH, FORMAT, ...)  RC_REPORT_IO(RC, DIAG_SEVERITY_INFO, PATH, FORMAT, ##__VA_ARGS__)
 #define RC_REPORT_IO_WARN(RC, PATH, FORMAT, ...)  RC_REPORT_IO(RC, DIAG_SEVERITY_WARN, PATH, FORMAT, ##__VA_ARGS__)
 #define RC_REPORT_IO_ERROR(RC, PATH, FORMAT, ...) RC_REPORT_IO(RC, DIAG_SEVERITY_ERROR, PATH, FORMAT, ##__VA_ARGS__)

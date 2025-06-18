@@ -19,6 +19,7 @@ struct BuildOptions {
     String root_path;
     Vector collections;
 
+    bool debug;
     bool colored_output;
 };
 

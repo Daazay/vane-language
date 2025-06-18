@@ -20,7 +20,7 @@ Compiler compiler_create(BuildOptions* build_options) {
             HASHMAP_KEY_SPECS(String, &get_string_hash, &string_eq_str, &string_destroy),
             HASHMAP_VALUE_SPECS(Package*, &package_destroy)
         ),
-        .rc = report_collector_create(build_options->colored_output),
+        .rc = report_collector_create(),
     };
 }
 
@@ -65,6 +65,9 @@ static DirWalkAction package_walk_file_callback(String* path_, void* data) {
         return DIR_WALK_CONTINUE;
     case IO_ERR_NOT_FOUND:
         RC_REPORT_IO_ERROR(&ctx->compiler->rc, path, "File not found.");
+        return DIR_WALK_CONTINUE;
+    case IO_ERR_EMPTY_FILE:
+        RC_REPORT_IO_DEBUG(&ctx->compiler->rc, path, "File is empty");
         return DIR_WALK_CONTINUE;
     case IO_ERR_READ_FAILED:
         RC_REPORT_IO_ERROR(&ctx->compiler->rc, path, "Failed to read file content.");
@@ -150,4 +153,25 @@ Package* compiler_load_package(Compiler* compiler, const String* dirpath) {
     }
 
     return package;
+}
+
+bool compiler_parse_source_files(Compiler* compiler) {
+    assert(compiler != NULL);
+
+    bool success = true;
+
+    HashmapIterator package_it = hashmap_get_it(&compiler->packages);
+    while (hashmap_it_next(&package_it)) {
+        Package* package = package_it.value;
+        if (package == NULL) {
+            continue;
+        }
+
+        bool ok = package_parse_source_files(package);
+        if (!ok) {
+            success = false;
+        }
+    }
+
+    return success;
 }

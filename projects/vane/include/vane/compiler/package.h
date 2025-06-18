@@ -31,3 +31,5 @@ Package* package_create(const String* path, ReportCollector* rc);
 void package_destroy(Package* package);
 
 void package_add_subpackage(Package* package, Package* subpackage);
+
+bool package_parse_source_files(Package* package);

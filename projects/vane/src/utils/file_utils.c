@@ -48,13 +48,18 @@ IOStatus file_content_load(const String* path, String* content) {
         return IO_ERR_READ_FAILED;
     }
 
+    if (fsize == 0) {
+        fclose(handle);
+        return IO_ERR_EMPTY_FILE;
+    }
+
     rewind(handle);
 
     byte* data = malloc((u64)fsize + 1);
     assert(data != NULL);
     data[(u64)fsize] = '\0';
 
-    u64 read_len = fread(content, sizeof(byte), fsize, handle);
+    u64 read_len = fread(data, sizeof(byte), fsize, handle);
     fclose(handle);
 
     if (read_len != (u64)fsize) {

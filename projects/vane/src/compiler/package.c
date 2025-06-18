@@ -53,3 +53,24 @@ void package_add_subpackage(Package* package, Package* subpackage) {
     subpackage->parent_package = package;
     vector_push_back(&package->subpackages, &subpackage);
 }
+
+bool package_parse_source_files(Package* package) {
+    assert(package != NULL);
+
+    bool success = true;
+
+    HashmapIterator source_file_it = hashmap_get_it(&package->source_files);
+    while (hashmap_it_next(&source_file_it)) {
+        SourceFile* source_file = source_file_it.value;
+        if (source_file == NULL) {
+            continue;
+        }
+
+        bool ok = source_file_parse(source_file);
+        if (!ok) {
+            success = false;
+        }
+    }
+
+    return success;
+}

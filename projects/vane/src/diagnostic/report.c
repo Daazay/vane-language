@@ -93,6 +93,9 @@ static void report_header_print(const Report* report, bool colored) {
 
         switch (report->severity) {
         case DIAG_SEVERITY_NONE: break;
+        case DIAG_SEVERITY_DEBUG:
+            font_color = TERMINAL_COLOR_BLUE;
+            break;
         case DIAG_SEVERITY_INFO:
             font_color = TERMINAL_COLOR_GREEN;
             break;

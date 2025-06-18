@@ -19,6 +19,7 @@ enum IOStatus {
     IO_ERR_NOT_DIR,
     IO_ERR_ACCESS_DENIED,
     IO_ERR_READ_FAILED,
+    IO_ERR_EMPTY_FILE,
     IO_ERR_UNKNOWN,
 };
 

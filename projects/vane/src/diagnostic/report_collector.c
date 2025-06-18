@@ -6,7 +6,7 @@
 
 #include "vane/diagnostic/report.h"
 
-ReportCollector report_collector_create(bool colored) {
+ReportCollector report_collector_create() {
     ReportCollector rc = { 0 };
 
     rc.reports = vector_create(
@@ -16,8 +16,6 @@ ReportCollector report_collector_create(bool colored) {
 
     rc.current_report = report_create();
     vector_push_back(&rc.reports, &rc.current_report);
-
-    rc.colored_output = colored;
 
     return rc;
 }
@@ -93,11 +91,16 @@ void report_collector_append_report_from_format(ReportCollector* rc, DiagnosticK
     report_collector_append_report(rc, kind, severity, loc, msg);
 }
 
-void report_collector_print_all(const ReportCollector* rc) {
+void report_collector_print_all(const ReportCollector* rc, bool colored, bool debug) {
     assert(rc != NULL);
 
     for (u32 i = 0; i < rc->reports.size; ++i) {
         const Report* report = vector_at(&rc->reports, i);
-        report_print(report, rc->colored_output);
+
+        if (report->severity == DIAG_SEVERITY_DEBUG && !debug) {
+            continue;
+        }
+
+        report_print(report, colored);
     }
 }

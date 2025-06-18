@@ -3,6 +3,7 @@
 const char* get_diagnostic_severity_name(DiagnosticSeverity severity) {
     switch (severity) {
     case DIAG_SEVERITY_NONE:  return "";
+    case DIAG_SEVERITY_DEBUG: return "debug";
     case DIAG_SEVERITY_INFO:  return "info";
     case DIAG_SEVERITY_WARN:  return "warn";
     case DIAG_SEVERITY_ERROR: return "error";

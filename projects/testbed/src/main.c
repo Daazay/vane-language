@@ -3,53 +3,38 @@
 #include <vane/compiler/build_options.h>
 #include <vane/compiler/compiler.h>
 
-u32 indent = 0;
+#include <vane/ast/visitors/ast_dot_visitor.h>
 
-static void print_indent() {
-    for (u32 i = 0; i < indent; ++i) {
-        printf("  ");
-    }
-}
-
-static void print_package(const Package* package) {
+static void print_ast_nodes(const Package* package) {
     assert(package != NULL);
 
-    indent++;
-
-    print_indent();
-    printf("[%.*s:%.*s]:\n",
-        (i32)package->name.len, package->name.text,
-        (i32)package->path->len, package->path->text
+    printf("[%.*s]:\n",
+        (i32)package->name.len, package->name.text
     );
 
-    indent++;
     if (package->source_files.size > 0) {
-        print_indent();
-        printf("source_files:\n");
-
-        indent++;
         HashmapIterator it = hashmap_get_it(&package->source_files);
         while (hashmap_it_next(&it)) {
-            const String* path = it.key;
+            const SourceFile* source_file = it.value;
 
-            print_indent();
-            printf("- %.*s\n", (i32)path->len, path->text);
+            if (source_file == NULL) {
+                continue;
+            }
+
+            for (u32 i = 0; i < source_file->ast_nodes.size; ++i) {
+                const ASTNode* ast = vector_at(&source_file->ast_nodes, i);
+
+                ast_print_dot(ast, stdout);
+            }
         }
-        indent--;
     }
 
     if (package->subpackages.size > 0) {
-        print_indent();
-        printf("subpackages:\n");
-
-        indent++;
         for (u32 i = 0; i < package->subpackages.size; ++i) {
             const Package* subpackage = vector_at(&package->subpackages, i);
-            print_package(subpackage);
+            print_ast_nodes(subpackage);
         }
-        indent--;
     }
-    indent -= 2;
 }
 
 int main(int argc, char** argv) {
@@ -73,11 +58,30 @@ int main(int argc, char** argv) {
     Compiler compiler = compiler_create(&build_options);
 
     Package* root_package = compiler_load_package(&compiler, &build_options.root_path);
-    if (root_package != NULL) {
-        print_package(root_package);
+    if (root_package == NULL) {
+        compiler_destroy(&compiler);
+        build_options_destroy(&build_options);
+
+        return 1;
     }
 
-    report_collector_print_all(&compiler.rc);
+    if (!compiler_parse_source_files(&compiler)) {
+        report_collector_print_all(&compiler.rc, build_options.colored_output, build_options.debug);
+
+        compiler_destroy(&compiler);
+        build_options_destroy(&build_options);
+
+        return 1;
+    }
+
+    print_ast_nodes(root_package);
+
+
+    // Process futher
+    // Analyze
+    // Sym table
+    // etc
+
 
     compiler_destroy(&compiler);
     build_options_destroy(&build_options);

@@ -26,3 +26,5 @@ Compiler compiler_create(BuildOptions* build_options);
 void compiler_destroy(Compiler* compiler);
 
 Package* compiler_load_package(Compiler* compiler, const String* dirpath);
+
+bool compiler_parse_source_files(Compiler* compiler);
