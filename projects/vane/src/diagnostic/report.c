@@ -89,7 +89,7 @@ static void report_header_print(const Report* report, bool colored) {
 
     if (colored) {
         TerminalColor font_color = TERMINAL_COLOR_WHITE;
-        TerminalColor bg_color = TERMINAL_COLOR_YELLOW;
+        TerminalColor bg_color = TERMINAL_COLOR_BLACK;
 
         switch (report->severity) {
         case DIAG_SEVERITY_NONE: break;

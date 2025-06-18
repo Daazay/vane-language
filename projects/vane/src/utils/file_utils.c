@@ -68,8 +68,8 @@ IOStatus file_content_load(const String* path, String* content) {
     return IO_OK;
 }
 
-IOStatus dir_walk(const String* path, dir_walk_callback_fn callback_fn, void* ctx) {
-    assert(path != NULL && callback_fn != NULL);
+IOStatus dir_walk(const String * path, const DirWalkCtx * ctx) {
+    assert(path != NULL && ctx != NULL);
 
     if (is_string_empty(path)) {
         return IO_ERR_INVALID_PATH;
@@ -91,14 +91,22 @@ IOStatus dir_walk(const String* path, dir_walk_callback_fn callback_fn, void* ct
         if (string_eq_cstr(&name, ".") || string_eq_cstr(&name, "..")) {
             continue;
         }
-        String fullpath = path_join_str(2, (const String*[]) { path, &name });
+        String fullpath = path_join_str(2, (const String *[]) { path, & name });
 
-        DirEntry entry = {
-            .path = fullpath,
-            .is_dir = (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0
-        };
+        DirWalkAction action = DIR_WALK_CONTINUE;
 
-        DirWalkAction action = callback_fn(&entry, ctx);
+        // Is directory
+        if ((fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0) {
+            if (ctx->dir_callack_fn != NULL) {
+                action = ctx->dir_callack_fn(&fullpath, ctx->data);
+            }
+        }
+        else {
+            if (ctx->file_callack_fn != NULL) {
+                action = ctx->file_callack_fn(&fullpath, ctx->data);
+            }
+        }
+
         string_destroy(&fullpath);
 
         if (action == DIR_WALK_STOP) {
@@ -135,12 +143,20 @@ IOStatus dir_walk(const String* path, dir_walk_callback_fn callback_fn, void* ct
             return IO_ERR_READ_FAILED;
         }
 
-        DirEntry de = {
-           .path = fullpath,
-           .is_dir = S_ISDIR(st.st_mode),
-        };
+        DirWalkAction action = DIR_WALK_CONTINUE;
 
-        DirWalkAction action = callback_fn(&de, ctx);
+        // Is directory
+        if (S_ISDIR(st.st_mode)) {
+            if (ctx->dir_callack_fn != NULL) {
+                action = ctx->dir_callack_fn(&fullpath, ctx->data);
+            }
+        }
+        else {
+            if (ctx->file_callack_fn != NULL) {
+                action = ctx->file_callack_fn(&fullpath, ctx->data);
+            }
+        }
+
         string_destroy(&fullpath);
 
         if (action == DIR_WALK_STOP) {

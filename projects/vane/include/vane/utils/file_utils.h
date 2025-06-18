@@ -7,22 +7,18 @@
 typedef enum IOStatus IOStatus;
 
 typedef enum DirWalkAction DirWalkAction;
-typedef struct DirEntry DirEntry;
-typedef DirWalkAction(*dir_walk_callback_fn)(const DirEntry* entry, void* ctx);
+typedef struct DirWalkCtx DirWalkCtx;
+
+typedef DirWalkAction(*dir_walk_file_callback_fn)(String* path, void* data);
+typedef DirWalkAction(*dir_walk_dir_callback_fn)(String* path, void* data);
 
 enum IOStatus {
     IO_OK = 0,
     IO_ERR_INVALID_PATH,
     IO_ERR_NOT_FOUND,
-    IO_ERR_IS_DIR,
-    IO_ERR_IS_FILE,
-    IO_ERR_ACCESS_DENIED,
-    IO_ERR_ALREADY_EXISTS,
-    IO_ERR_READ_FAILED,
-    IO_ERR_WRITE_FAILED,
-    IO_ERR_CREATE_FAILED,
     IO_ERR_NOT_DIR,
-    IO_ERR_NOT_FILE,
+    IO_ERR_ACCESS_DENIED,
+    IO_ERR_READ_FAILED,
     IO_ERR_UNKNOWN,
 };
 
@@ -31,11 +27,12 @@ enum DirWalkAction {
     DIR_WALK_CONTINUE = 1,
 };
 
-struct DirEntry {
-    String path;
-    bool is_dir;
+struct DirWalkCtx {
+    dir_walk_file_callback_fn file_callack_fn;
+    dir_walk_file_callback_fn dir_callack_fn;
+    void* data;
 };
 
 IOStatus file_content_load(const String* path, String* content);
 
-IOStatus dir_walk(const String* path, dir_walk_callback_fn callback_fn, void* ctx);
+IOStatus dir_walk(const String* path, const DirWalkCtx* ctx);
