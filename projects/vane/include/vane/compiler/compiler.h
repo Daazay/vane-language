@@ -14,7 +14,7 @@ typedef struct Compiler Compiler;
 struct Compiler {
     BuildOptions* build_options;
 
-    // k: [dirpath, const String*, NULL]
+    // k: [dirpath, String, &string_destroy]
     // v: [package, Package*, &package_destroy]
     Hashmap packages;
 
@@ -25,6 +25,12 @@ Compiler compiler_create(BuildOptions* build_options);
 
 void compiler_destroy(Compiler* compiler);
 
+const String* compiler_get_collection_path(Compiler* compiler, const String* collection_name);
+
 Package* compiler_load_package(Compiler* compiler, const String* dirpath);
 
+Package* compiler_load_imported_package(Compiler* compiler, const String* import_path);
+
 bool compiler_parse_source_files(Compiler* compiler);
+
+bool compiler_resolve_imports(Compiler* compiler);

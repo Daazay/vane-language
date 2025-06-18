@@ -5,6 +5,8 @@
 #include "vane/utils/path.h"
 #include "vane/utils/hash.h"
 
+#include "vane/compiler/compiler.h"
+
 #define PACKAGE_DEFAULT_SOURCE_FILE_COUNT 8
 #define PACKAGE_DEFAULT_SUBPACKAGE_COUNT 8
 
@@ -67,6 +69,27 @@ bool package_parse_source_files(Package* package) {
         }
 
         bool ok = source_file_parse(source_file);
+        if (!ok) {
+            success = false;
+        }
+    }
+
+    return success;
+}
+
+bool package_resolve_imports(Package* package, struct Compiler* compiler) {
+    assert(package != NULL);
+
+    bool success = true;
+
+    HashmapIterator source_file_it = hashmap_get_it(&package->source_files);
+    while (hashmap_it_next(&source_file_it)) {
+        SourceFile* source_file = source_file_it.value;
+        if (source_file == NULL) {
+            continue;
+        }
+
+        bool ok = source_file_resolve_imports(source_file, compiler);
         if (!ok) {
             success = false;
         }

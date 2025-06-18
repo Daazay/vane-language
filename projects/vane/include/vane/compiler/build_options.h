@@ -2,7 +2,7 @@
 
 #include "vane/utils/defines.h"
 #include "vane/utils/string.h"
-#include "vane/utils/vector.h"
+#include "vane/utils/hashmap.h"
 
 typedef enum BuildCommand BuildCommand;
 typedef struct BuildOptions BuildOptions;
@@ -17,13 +17,18 @@ struct BuildOptions {
     BuildCommand command;
 
     String root_path;
-    Vector collections;
+
+    // k: [name, String, &string_destroy]
+    // k: [path, String, &string_destroy]
+    Hashmap collections;
 
     bool debug;
     bool colored_output;
 };
 
 void print_usage(const char* argv0);
+
+bool build_options_init(BuildOptions* build_options);
 
 bool build_options_parse_args(BuildOptions* options, int argc, char** argv);
 

@@ -3,18 +3,21 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "vane/utils/hash.h"
 #include "vane/utils/path.h"
 #include "vane/utils/terminal.h"
 
 #define PRINT_LINE(msg, ...) printf(msg "\n", ##__VA_ARGS__)
 #define PRINT_ERROR_LINE(msg, ...) printf("ERROR: " msg "\n", ##__VA_ARGS__)
 
+#define VANE_VENV_NAME "VANE_LANG_ROOT"
+
 void print_usage(const char* argv0) {
     PRINT_LINE("Usage: %s [GENERAL OPTIONS] COMMAND [ARGUMENTS]", argv0);
     PRINT_LINE("");
     PRINT_LINE("General options:");
     PRINT_LINE("  --debug              Print debug reports.");
-    PRINT_LINE("  --collection <PATH>  Adds collection path.");
+    PRINT_LINE("  --collection <NAME:PATH>  Adds collection path.");
     PRINT_LINE("");
     PRINT_LINE("Commands:");
     PRINT_LINE("  build   Build project.");
@@ -60,9 +63,19 @@ static bool parse_option(ArgParser* parser) {
         // GENERAL OPTIONS
         if (match_arg(op, "collection")) {
             if (has_next_arg(parser) && !is_next_option(parser)) {
-                const char* arg = advance_arg(parser);
-                String collection_path = string_from_cstr(arg);
-                vector_push_back(&parser->options->collections, &collection_path);
+                const char* arg_ = advance_arg(parser);
+                String arg = string_create(arg_, strlen(arg_));
+
+                i64 colon_pos = string_find_c(&arg, ':');
+                if ((colon_pos == NPOS) || (colon_pos == 0) || ((u64)colon_pos == arg.len)) {
+                    PRINT_ERROR_LINE("invalid argument for 'collection' option.");
+                    return false;
+                }
+
+                String name = string_substr(&arg, 0, colon_pos);
+                String path = string_substr(&arg, colon_pos + 1, arg.len - colon_pos);
+
+                hashmap_put(&parser->options->collections, &name, &path);
                 return true;
             }
 
@@ -122,6 +135,24 @@ static bool parse_command(ArgParser* parser) {
     return parse_command_args(parser);
 }
 
+
+bool build_options_init(BuildOptions* options) {
+    assert(options != NULL);
+
+    options->command = BUILD_COMMAND_MISSING;
+    options->root_path = (String){ 0 };
+
+    options->collections = hashmap_create(4,
+        HASHMAP_KEY_SPECS(String, &get_string_hash, &string_eq_str, &string_destroy),
+        HASHMAP_VALUE_SPECS(String, &string_destroy)
+    );
+
+    options->debug = false;
+    options->colored_output = is_terminal_support_colors();
+
+    return true;
+}
+
 bool build_options_parse_args(BuildOptions* options, int argc, char** argv) {
     assert(options != NULL);
 
@@ -130,11 +161,10 @@ bool build_options_parse_args(BuildOptions* options, int argc, char** argv) {
         return true;
     }
 
-    options->command = BUILD_COMMAND_MISSING;
-    options->root_path = (String){ 0 };
-    options->collections = vector_create(4, VECTOR_ITEM_SPECS(String, &string_destroy));
-    options->debug = false;
-    options->colored_output = is_terminal_support_colors();
+    if (!build_options_init(options)) {
+        build_options_destroy(options);
+        return false;
+    }
 
     ArgParser arg_parser = {
         .options = options,
@@ -184,5 +214,5 @@ void build_options_destroy(BuildOptions* options) {
     if (options == NULL) return;
 
     string_destroy(&options->root_path);
-    vector_destroy(&options->collections);
+    hashmap_destroy(&options->collections);
 }

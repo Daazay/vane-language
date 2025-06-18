@@ -9,7 +9,7 @@ static void print_ast_nodes(const Package* package) {
     assert(package != NULL);
 
     printf("[%.*s]:\n",
-        (i32)package->name.len, package->name.text
+        (i32)package->path->len, package->path->text
     );
 
     if (package->source_files.size > 0) {
@@ -29,11 +29,20 @@ static void print_ast_nodes(const Package* package) {
         }
     }
 
-    if (package->subpackages.size > 0) {
-        for (u32 i = 0; i < package->subpackages.size; ++i) {
-            const Package* subpackage = vector_at(&package->subpackages, i);
-            print_ast_nodes(subpackage);
-        }
+    //if (package->subpackages.size > 0) {
+    //    for (u32 i = 0; i < package->subpackages.size; ++i) {
+    //        const Package* subpackage = vector_at(&package->subpackages, i);
+    //        print_ast_nodes(subpackage);
+    //    }
+    //}
+}
+
+static void print_ast_compiler(const Compiler* compiler) {
+    assert(compiler != NULL);
+
+    HashmapIterator package_it = hashmap_get_it(&compiler->packages);
+    while (hashmap_it_next(&package_it)) {
+        print_ast_nodes(package_it.value);
     }
 }
 
@@ -44,6 +53,7 @@ int main(int argc, char** argv) {
     }
 
     BuildOptions build_options = { 0 };
+
     if (!build_options_parse_args(&build_options, argc, argv)) {
         return 1;
     }
@@ -74,7 +84,16 @@ int main(int argc, char** argv) {
         return 1;
     }
 
-    print_ast_nodes(root_package);
+    if (!compiler_resolve_imports(&compiler)) {
+        report_collector_print_all(&compiler.rc, build_options.colored_output, build_options.debug);
+
+        compiler_destroy(&compiler);
+        build_options_destroy(&build_options);
+
+        return 1;
+    }
+
+    print_ast_compiler(&compiler);
 
 
     // Process futher

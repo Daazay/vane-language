@@ -10,6 +10,7 @@
 #include "vane/compiler/source_file.h"
 
 typedef struct Package Package;
+struct Compiler;
 
 struct Package {
     const String* path;
@@ -33,3 +34,5 @@ void package_destroy(Package* package);
 void package_add_subpackage(Package* package, Package* subpackage);
 
 bool package_parse_source_files(Package* package);
+
+bool package_resolve_imports(Package* package, struct Compiler* compiler);
