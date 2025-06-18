@@ -1,7 +1,6 @@
 #include "vane/utils/file_utils.h"
 
 #include <stdlib.h>
-#include <string.h>
 #include <stdio.h>
 #include <errno.h>
 
@@ -10,148 +9,140 @@
 #else
 #include <dirent.h>
 #include <sys/stat.h>
-#include <unistd.h>
 #endif
 
-IOStatus file_content_load(FileContent* fc, const String* path) {
-    assert(fc != NULL && path != NULL);
+#include "vane/utils/path.h"
 
-    if (string_is_empty(path)) {
-        return IO_STATUS_ERR_INVALID_PATH;
+IOStatus file_content_load(const String* path, String* content) {
+    assert(path != NULL && content != NULL);
+
+    if (is_string_empty(path)) {
+        return IO_ERR_INVALID_PATH;
     }
+
+    FILE* handle = NULL;
 
 #if defined(PLATFORM_WINDOWS)
-    FILE* handle = NULL;
     i32 status = fopen_s(&handle, path->text, "rb");
-
     if (status != 0 || handle == NULL) {
-        return IO_STATUS_ERR_FILE_NOT_FOUND;
-    }
-#else
-    struct stat st = { 0 };
-    if (stat(path->text, &st) != 0) {
-        return IO_STATUS_ERR_FILE_NOT_FOUND;
-    }
-    if (S_ISDIR(st.st_mode)) {
-        return IO_STATUS_ERR_FILE_NOT_FOUND;
-    }
-
-    FILE* handle = fopen(path->text, "rb");
+#elif
+    handle = fopen(path->text, "rb");
     if (handle == NULL) {
+#endif
         switch (errno) {
-        case ENOENT: return IO_STATUS_ERR_FILE_NOT_FOUND;
-        default: return IO_STATUS_ERR_FILE_READ_FAILED;
+        case ENOENT: return IO_ERR_NOT_FOUND;
+        case EACCES: return IO_ERR_ACCESS_DENIED;
+        default:     return IO_ERR_READ_FAILED;
         }
     }
-#endif
 
-    fseek(handle, 0, SEEK_END);
-    const u64 fsize = ftell(handle);
-    rewind(handle);
-
-    if (fsize == 0) {
+    if (fseek(handle, 0, SEEK_END) != 0) {
         fclose(handle);
-        return IO_STATUS_ERR_FILE_EMPTY;
+        return IO_ERR_READ_FAILED;
     }
 
-    byte* content = malloc(fsize + 1);
-    assert(content != NULL);
+    i64 fsize = ftell(handle);
+    if (fsize < 0) {
+        fclose(handle);
+        return IO_ERR_READ_FAILED;
+    }
+
+    rewind(handle);
+
+    byte* data = malloc((u64)fsize + 1);
+    assert(data != NULL);
+    data[(u64)fsize] = '\0';
 
     u64 read_len = fread(content, sizeof(byte), fsize, handle);
     fclose(handle);
 
-    if (read_len != fsize) {
+    if (read_len != (u64)fsize) {
         free(content);
-        return IO_STATUS_ERR_FILE_READ_FAILED;
+        return IO_ERR_READ_FAILED;
     }
 
-    fc->path = path;
-    fc->content = content;
-    fc->size = fsize;
+    content->text = (char*)data;
+    content->len = (u64)fsize;
 
-    return IO_STATUS_OK;
+    return IO_OK;
 }
 
-void file_content_destroy(FileContent* fc) {
-    if (fc == NULL) {
-        return;
-    }
+IOStatus dir_walk(const String* path, dir_walk_callback_fn callback_fn, void* ctx) {
+    assert(path != NULL && callback_fn != NULL);
 
-    free(fc->content);
-    fc->content = NULL;
-
-    fc->path = NULL;
-    fc->size = 0;
-}
-
-IOStatus iterate_directory(const String* dirpath, iterate_directory_fn iterate_fn, void* data) {
-    assert(dirpath != NULL && iterate_fn != NULL);
-
-    if (string_is_empty(dirpath)) {
-        return IO_STATUS_ERR_INVALID_PATH;
+    if (is_string_empty(path)) {
+        return IO_ERR_INVALID_PATH;
     }
 
 #if defined(PLATFORM_WINDOWS)
-    WIN32_FIND_DATAA find_data = { 0 };
+    String pattern = path_join_cstr(2, (const char* []) { path->text, "*" });
 
-    char search_path[MAX_PATH] = { 0 };
-    snprintf(search_path, sizeof(search_path), "%s\\*", dirpath->text);
+    WIN32_FIND_DATAA fd = { 0 };
+    HANDLE h = FindFirstFileA(pattern.text, &fd);
+    string_destroy(&pattern);
 
-    HANDLE handle = FindFirstFileA(search_path, &find_data);
-    if (handle == INVALID_HANDLE_VALUE) {
-        switch (GetLastError()) {
-        case ERROR_DIRECTORY:
-        case ERROR_PATH_NOT_FOUND: return IO_STATUS_ERR_DIR_NOT_FOUND;
-        default: return IO_STATUS_ERR_DIR_READ_FAILED;
-        }
+    if (h == INVALID_HANDLE_VALUE) {
+        return IO_ERR_NOT_FOUND;
     }
 
     do {
-        String name = (String){ .text = find_data.cFileName, .len = strlen(find_data.cFileName) };
+        String name = string_create(fd.cFileName, strlen(fd.cFileName));
         if (string_eq_cstr(&name, ".") || string_eq_cstr(&name, "..")) {
             continue;
         }
+        String fullpath = path_join_str(2, (const String*[]) { path, &name });
 
-        bool is_dir = (find_data.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0;
-        u64 size = ((u64)find_data.nFileSizeHigh << 32) | find_data.nFileSizeLow;
+        DirEntry entry = {
+            .path = fullpath,
+            .is_dir = (fd.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) != 0
+        };
 
-        if (!iterate_fn(dirpath, &name, is_dir, size, data)) {
+        DirWalkAction action = callback_fn(&entry, ctx);
+        string_destroy(&fullpath);
+
+        if (action == DIR_WALK_STOP) {
             break;
         }
-    } while (FindNextFileA(handle, &find_data));
+    } while (FindNextFileA(h, &fd));
 
-    FindClose(handle);
-    return IO_STATUS_OK;
+    FindClose(h);
+    return IO_OK;
 #else
-    printf("DIR* dir = opendir(\"%s\");\n", dirpath->text);
     DIR* dir = opendir(dirpath->text);
     if (dir == NULL) {
         switch (errno) {
-        case ENOENT: return IO_STATUS_ERR_DIR_NOT_FOUND;
-        case ENOTDIR: return IO_STATUS_ERR_DIR_NOT_FOUND;
-        default: return IO_STATUS_ERR_DIR_READ_FAILED;
+        case ENOENT:  return IO_ERR_NOT_FOUND;
+        case ENOTDIR: return IO_ERR_NOT_DIR;
+        case EACCES:  return IO_ERR_ACCESS_DENIED;
+        default:      return IO_ERR_READ_FAILED;
         }
     }
 
     struct dirent* entry = NULL;
     while ((entry = readdir(dir)) != NULL) {
-        String name = (String){ .text = entry->d_name, .len = strlen(entry->d_name) };
+        String name = string_create(entry->d_name, strlen(entry->d_name));
         if (string_eq_cstr(&name, ".") || string_eq_cstr(&name, "..")) {
             continue;
         }
+        String fullpath = path_join_str(2, (const String * []) { path, & name });
 
-        char full_path[2048] = {0};
-        snprintf(full_path, sizeof(full_path), "%.*s/%s", (i32)dirpath->len, dirpath->text, entry->d_name);
-
-        struct stat st = { 0 };
-        if (stat(full_path, &st) != 0) {
-            continue;
+        struct stat st;
+        if (stat(fullpath.text, &st) != 0) {
+            // Could not stat, ignore this entry
+            string_destroy(&fullpath);
+            closedir(dir);
+            return IO_ERR_READ_FAILED;
         }
 
-        bool is_dir = S_ISDIR(st.st_mode);
-        u64 size = (u64)st.st_size;
+        DirEntry de = {
+           .path = fullpath,
+           .is_dir = S_ISDIR(st.st_mode),
+        };
 
-        if (!iterate_fn(dirpath, &name, is_dir, size, data)) {
+        DirWalkAction action = callback_fn(&entry, ctx);
+        string_destroy(&fullpath);
+
+        if (action == DIR_WALK_STOP) {
             break;
         }
     }

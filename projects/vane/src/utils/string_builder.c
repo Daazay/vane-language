@@ -10,14 +10,22 @@
 #define SB_DEFAULT_CAPACITY (32)
 #define SB_CAPACITY_MULT    (1.5)
 
-static void sb_append_cstr_impl(StringBuilder* sb, const char* cstr, u64 len, bool left) {
-    if (sb->len + len > sb->cap) {
+static void string_builder_ensure_capacity(StringBuilder* sb, u64 add_len) {
+    assert(sb != NULL);
+
+    if (sb->len + add_len > sb->cap) {
         u64 new_cap = sb->cap;
-        while (sb->len + len > new_cap) {
+        while (sb->len + add_len > new_cap) {
             new_cap = (u64)((f64)new_cap * SB_CAPACITY_MULT);
         }
-        sb_resize(sb, new_cap);
+        string_builder_resize(sb, new_cap);
     }
+}
+
+static void string_builder_append_cstr_impl(StringBuilder* sb, const char* cstr, u64 len, bool left) {
+    assert(sb != NULL && cstr != NULL);
+
+    string_builder_ensure_capacity(sb, len);
 
     if (left) {
         memmove(sb->buf + len, sb->buf, sb->len);
@@ -27,15 +35,17 @@ static void sb_append_cstr_impl(StringBuilder* sb, const char* cstr, u64 len, bo
         memcpy(sb->buf + sb->len, cstr, len);
     }
 
-    sb->len = sb->len + len;
+    sb->len += len;
     sb->buf[sb->len] = '\0';
 }
 
-static void sb_append_format_va_impl(StringBuilder* sb, const char* format, va_list _va, bool left) {
-    va_list va;
-    va_copy(va, _va);
-    const i32 len = vsnprintf(NULL, 0, format, va);
-    va_end(va);
+static void string_builder_append_format_va_impl(StringBuilder* sb, const char* format, va_list _va, bool left) {
+    assert(sb != NULL && format != NULL);
+
+    va_list args_copy;
+    va_copy(args_copy, _va);
+    int len = vsnprintf(NULL, 0, format, args_copy);
+    va_end(args_copy);
 
     assert(len >= 0);
 
@@ -43,37 +53,22 @@ static void sb_append_format_va_impl(StringBuilder* sb, const char* format, va_l
         return;
     }
 
-    if (sb->len + len > sb->cap) {
-        u64 new_cap = sb->cap;
-        while (sb->len + len > new_cap) {
-            new_cap = (u64)((f64)sb->cap * SB_CAPACITY_MULT);
-        }
-        sb_resize(sb, new_cap);
-    }
+    string_builder_ensure_capacity(sb, (u64)len);
 
     if (left) {
-        const char tmp = sb->buf[0];
         memmove(sb->buf + (u64)len, sb->buf, sb->len + 1);
-
-        va_copy(va, _va);
-        vsnprintf(sb->buf, (u64)len + 1, format, va);
-        va_end(va);
-
-        // vsnprintf insert terminating zero
-        sb->buf[(u64)len] = tmp;
+        vsnprintf(sb->buf, (u64)len + 1, format, _va);
     }
     else {
-        va_copy(va, _va);
-        vsnprintf(sb->buf + sb->len, (u64)len + 1, format, va);
-        va_end(va);
+        vsnprintf(sb->buf + sb->len, (u64)len + 1, format, _va);
     }
 
-    sb->len = sb->len + len;
+    sb->len += (u64)len;
 }
 
 #pragma endregion
 
-StringBuilder sb_create(u64 init_cap) {
+StringBuilder string_builder_create(u64 init_cap) {
     u64 cap = (init_cap > 0)
         ? init_cap
         : SB_DEFAULT_CAPACITY;
@@ -90,18 +85,19 @@ StringBuilder sb_create(u64 init_cap) {
     };
 }
 
-void sb_destroy(StringBuilder* sb) {
-    if (sb == NULL) {
+void string_builder_destroy(StringBuilder* sb) {
+    if (sb == NULL || sb->buf == NULL) {
         return;
     }
 
     free(sb->buf);
 
     sb->buf = NULL;
+    sb->cap = 0;
     sb->len = 0;
 }
 
-void sb_resize(StringBuilder* sb, u64 new_cap) {
+void string_builder_resize(StringBuilder* sb, u64 new_cap) {
     assert(sb != NULL && new_cap > 0);
 
     if (new_cap == sb->cap) {
@@ -115,128 +111,81 @@ void sb_resize(StringBuilder* sb, u64 new_cap) {
     sb->cap = new_cap;
 }
 
-void sb_append_left_c(StringBuilder* sb, char c) {
+void string_builder_append_left_c(StringBuilder* sb, char c) {
     assert(sb != NULL);
 
-    if (sb->len == sb->cap) {
-        u64 new_cap = (u64)((f64)sb->cap * SB_CAPACITY_MULT);
-        sb_resize(sb, new_cap);
-    }
-
-    memmove(sb->buf + 1, sb->buf, sb->len + 1);
-    sb->buf[0] = c;
-
-    sb->len++;
+    string_builder_append_cstr_impl(sb, &c, 1, true);
 }
 
-void sb_append_left_cstr(StringBuilder* sb, const char* cstr) {
+void string_builder_append_left_cstr(StringBuilder* sb, const char* cstr) {
     assert(sb != NULL);
 
-    const u64 len = strlen(cstr);
-    if (len == 0) {
-        return;
-    }
-
-    if (len == 1) {
-        sb_append_left_c(sb, cstr[0]);
-        return;
-    }
-    sb_append_cstr_impl(sb, cstr, len, true);
+    string_builder_append_cstr_impl(sb, cstr, strlen(cstr), true);
 }
 
-void sb_append_left_str(StringBuilder* sb, const String* s) {
+void string_builder_append_left_str(StringBuilder* sb, const String* s) {
     assert(sb != NULL && s != NULL);
 
-    if (string_is_empty(s)) {
+    if (is_string_empty(s)) {
         return;
     }
 
-    if (s->len == 1) {
-        sb_append_left_c(sb, s->text[0]);
-        return;
-    }
-    sb_append_cstr_impl(sb, s->text, s->len, true);
+    string_builder_append_cstr_impl(sb, s->text, s->len, true);
 }
 
-void sb_append_left_format_va(StringBuilder* sb, const char* format, va_list _va) {
-    assert(sb != NULL && format != NULL);
-
-    va_list va;
-    va_copy(va, _va);
-    sb_append_format_va_impl(sb, format, va, true);
-    va_end(va);
-}
-
-void sb_append_left_format(StringBuilder* sb, const char* format, ...) {
+void string_builder_append_left_format(StringBuilder* sb, const char* format, ...) {
     assert(sb != NULL && format != NULL);
 
     va_list va;
     va_start(va, format);
-    sb_append_format_va_impl(sb, format, va, true);
+    string_builder_append_format_va_impl(sb, format, va, true);
     va_end(va);
 }
 
-void sb_append_right_c(StringBuilder* sb, char c) {
-    assert(sb != NULL);
-
-    if (sb->len == sb->cap) {
-        u64 new_cap = (u64)((f64)sb->cap * SB_CAPACITY_MULT);
-        sb_resize(sb, new_cap);
-    }
-
-    sb->buf[sb->len] = c;
-    sb->len++;
-    sb->buf[sb->len] = '\0';
-}
-
-void sb_append_right_cstr(StringBuilder* sb, const char* cstr) {
-    assert(sb != NULL);
-
-    const u64 len = strlen(cstr);
-    if (len == 0) {
-        return;
-    }
-
-    if (len == 1) {
-        sb_append_right_c(sb, cstr[0]);
-        return;
-    }
-    sb_append_cstr_impl(sb, cstr, len, false);
-}
-
-void sb_append_right_str(StringBuilder* sb, const String* s) {
-    assert(sb != NULL && s != NULL);
-
-    if (string_is_empty(s)) {
-        return;
-    }
-
-    if (s->len == 1) {
-        sb_append_right_c(sb, s->text[0]);
-        return;
-    }
-    sb_append_cstr_impl(sb, s->text, s->len, false);
-}
-
-void sb_append_right_format_va(StringBuilder* sb, const char* format, va_list _va) {
+void string_builder_append_left_format_va(StringBuilder* sb, const char* format, va_list _va) {
     assert(sb != NULL && format != NULL);
 
-    va_list va;
-    va_copy(va, _va);
-    sb_append_format_va_impl(sb, format, va, false);
-    va_end(va);
+    string_builder_append_format_va_impl(sb, format, _va, true);
 }
 
-void sb_append_right_format(StringBuilder* sb, const char* format, ...) {
+void string_builder_append_right_c(StringBuilder* sb, char c) {
+    assert(sb != NULL);
+
+    string_builder_append_cstr_impl(sb, &c, 1, false);
+}
+
+void string_builder_append_right_cstr(StringBuilder* sb, const char* cstr) {
+    assert(sb != NULL);
+
+    string_builder_append_cstr_impl(sb, cstr, strlen(cstr), false);
+}
+
+void string_builder_append_right_str(StringBuilder* sb, const String* s) {
+    assert(sb != NULL && s != NULL);
+
+    if (is_string_empty(s)) {
+        return;
+    }
+
+    string_builder_append_cstr_impl(sb, s->text, s->len, false);
+}
+
+void string_builder_append_right_format(StringBuilder* sb, const char* format, ...) {
     assert(sb != NULL && format != NULL);
 
     va_list va;
     va_start(va, format);
-    sb_append_format_va_impl(sb, format, va, false);
+    string_builder_append_format_va_impl(sb, format, va, false);
     va_end(va);
 }
 
-String sb_get_str(const StringBuilder* sb) {
+void string_builder_append_right_format_va(StringBuilder* sb, const char* format, va_list _va) {
+    assert(sb != NULL && format != NULL);
+
+    string_builder_append_format_va_impl(sb, format, _va, false);
+}
+
+String string_builder_get_str(const StringBuilder* sb) {
     assert(sb != NULL);
 
     if (sb->len == 0) {
@@ -246,6 +195,8 @@ String sb_get_str(const StringBuilder* sb) {
     char* text = malloc(sb->len + 1);
     assert(text != NULL);
 
-    memcpy(text, sb->buf, sb->len + 1);
-    return (String) { .text = text, .len = sb->len };
+    memcpy(text, sb->buf, sb->len);
+    text[sb->len] = '\0';
+
+    return string_create(text, sb->len);
 }

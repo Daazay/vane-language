@@ -7,61 +7,67 @@
 
 #pragma region UTILITIES
 
-#define STRING(TEXT, LEN) (String){ .text = TEXT, .len = LEN }
-
 static void string_replace_cstr_impl(String* s, const char* find, const u64 find_len, const char* rep, const u64 rep_len) {
-    char* tmp = NULL;
-    char* s_ptr = s->text;
+    assert(s != NULL && find != NULL);
 
-    u64 rep_count = 0;
-    while ((tmp = strstr(s_ptr, find)) != NULL) {
-        ++rep_count;
-        s_ptr = tmp + find_len;
+    char* src = s->text;
+
+    u64 count = 0;
+    for (char* p = strstr(src, find); p != NULL; p = strstr(p + find_len, find)) {
+        count++;
     }
 
-    if (rep_count == 0) {
+    if (count == 0) {
         return;
     }
 
-    const u64 len = (i64)s->len + ((i64)rep_len - (i64)find_len) * rep_count;
-    if (len == 0) {
+    u64 new_len = s->len + count * (rep_len - find_len);
+    if (new_len == 0) {
         string_destroy(s);
-        *s = STRING_EMPTY;
         return;
     }
 
-    char* text = malloc(len + 1);
-    assert(text != NULL);
-    text[len] = '\0';
+    char* new_text = malloc(new_len + 1);
+    assert(new_text != NULL);
 
-    s_ptr = s->text;
-    tmp = text;
+    new_text[new_len] = '\0';
 
-    char* ins_ptr = NULL;
-    u64 orig_len = 0;
-    u64 offset = 0;
+    char* dst = new_text;
+    while (src != NULL) {
+        char* pos = strstr(src, find);
+        if (pos == NULL) {
+            break;
+        }
 
-    while (rep_count--) {
-        ins_ptr = strstr(s_ptr, find);
-        orig_len = ins_ptr - s_ptr;
-        memcpy(tmp, s_ptr, orig_len);
-        tmp += orig_len;
-        memcpy(tmp, rep, rep_len);
-        tmp += rep_len;
-        s_ptr = ins_ptr + find_len;
+        u64 segment = (u64)(pos - src);
+        memcpy(dst, src, segment);
+        dst += segment;
 
-        offset = offset + orig_len + find_len;
+        if (rep != NULL && rep_len > 0) {
+            memcpy(dst, rep, rep_len);
+            dst += rep_len;
+        }
+
+        src = pos + find_len;
     }
 
-    // append rest
-    memcpy(tmp, s_ptr, s->len - offset);
+    // copy remaining
+    u64 remaining = s->len - (src - s->text);
+    memcpy(dst, src, remaining);
 
     free(s->text);
-    s->text = text;
-    s->len = len;
+    s->text = new_text;
+    s->len = new_len;
 }
 
 #pragma endregion
+
+String string_create(char* text, u64 len) {
+    return (String) {
+        .text = text,
+        .len = len,
+    };
+}
 
 String string_from_cstr(const char* cstr) {
     if (cstr == NULL) {
@@ -76,12 +82,24 @@ String string_from_cstr(const char* cstr) {
     char* text = malloc(len + 1);
     assert(text != NULL);
 
-    memcpy(text, cstr, len + 1);
+    memcpy(text, cstr, len);
+    text[len] = '\0';
 
-    return STRING(text, len);
+    return string_create(text, len);
 }
 
-String string_from_fmt_va(const char* format, va_list _va) {
+String string_from_format(const char* format, ...) {
+    assert(format != NULL);
+
+    va_list va;
+    va_start(va, format);
+    String s = string_from_format_va(format, va);
+    va_end(va);
+
+    return s;
+}
+
+String string_from_format_va(const char* format, va_list _va) {
     assert(format != NULL);
 
     va_list va;
@@ -98,54 +116,53 @@ String string_from_fmt_va(const char* format, va_list _va) {
     char* text = malloc((u64)len + 1);
     assert(text != NULL);
 
+    text[(u64)len] = '\0';
+
     va_copy(va, _va);
     vsnprintf(text, (u64)len + 1, format, va);
     va_end(va);
 
-    return STRING(text, len);
-}
-
-String string_from_fmt(const char* format, ...) {
-    assert(format != NULL);
-
-    va_list va;
-    va_start(va, format);
-    String s = string_from_fmt_va(format, va);
-    va_end(va);
-
-    return s;
+    return string_create(text, len);
 }
 
 String string_clone(const String* s) {
     assert(s != NULL);
 
-    if (string_is_empty(s)) {
+    if (is_string_empty(s)) {
         return STRING_EMPTY;
     }
 
     char* text = malloc(s->len + 1);
     assert(text != NULL);
 
-    memcpy(text, s->text, s->len + 1);
+    memcpy(text, s->text, s->len);
+    text[s->len] = '\0';
 
-    return STRING(text, s->len);
+    return string_create(text, s->len);
 }
 
 void string_destroy(String* s) {
-    if (s == NULL) {
+    if (s == NULL || s->text == NULL) {
         return;
     }
 
     free(s->text);
 
-    s->text = NULL;
-    s->len = 0;
+    *s = STRING_EMPTY;
+}
+
+// Utilities
+
+bool is_string_empty(const String* s) {
+    assert(s != NULL);
+
+    return s->text == NULL && s->len == 0;
 }
 
 String string_substr(const String* s, u64 offset, u64 len) {
     assert(s != NULL);
 
-    if (string_is_empty(s) || offset >= s->len || len == 0) {
+    if (is_string_empty(s) || offset >= s->len || len == 0) {
         return STRING_EMPTY;
     }
 
@@ -159,13 +176,37 @@ String string_substr(const String* s, u64 offset, u64 len) {
     memcpy(text, s->text + offset, reslen);
     text[reslen] = '\0';
 
-    return STRING(text, reslen);
+    return string_create(text, reslen);
 }
+
+String string_concat(const String* s1, const String* s2) {
+    assert(s1 != NULL && s2 != NULL);
+
+    if (is_string_empty(s1)) {
+        return is_string_empty(s2) ? STRING_EMPTY : string_clone(s2);
+    }
+    else if (is_string_empty(s2)) {
+        return string_clone(s1);
+    }
+
+    const u64 len = s1->len + s2->len;
+
+    char* text = malloc(len + 1);
+    assert(text != NULL);
+
+    memcpy(text, s1->text, s1->len);
+    memcpy(text + s1->len, s2->text, s2->len);
+    text[len] = '\0';
+
+    return string_create(text, len);
+}
+
+// Replacment
 
 void string_replace_c(String* s, char find, char replace) {
     assert(s != NULL && find != '\0');
 
-    if (string_is_empty(s)) {
+    if (is_string_empty(s)) {
         return;
     }
 
@@ -186,7 +227,7 @@ void string_replace_c(String* s, char find, char replace) {
 void string_replace_cstr(String* s, const char* find, const char* replace) {
     assert(s != NULL);
 
-    if (string_is_empty(s) || (find == NULL)) {
+    if (is_string_empty(s) || (find == NULL)) {
         return;
     }
 
@@ -210,7 +251,7 @@ void string_replace_cstr(String* s, const char* find, const char* replace) {
 void string_replace_str(String* s, const String* find, const String* replace) {
     assert(s != NULL && find != NULL && replace != NULL);
 
-    if (string_is_empty(s) || string_is_empty(find)) {
+    if (is_string_empty(s) || is_string_empty(find)) {
         return;
     }
 
@@ -222,16 +263,12 @@ void string_replace_str(String* s, const String* find, const String* replace) {
     string_replace_cstr_impl(s, find->text, find->len, replace->text, replace->len);
 }
 
-bool string_is_empty(const String* s) {
-    assert(s != NULL);
-
-    return s->text == NULL && s->len == 0;
-}
+// Comparison
 
 bool string_eq_cstr(const String* s, const char* cstr) {
     assert(s != NULL);
 
-    if (string_is_empty(s) || cstr == NULL) {
+    if (is_string_empty(s) || cstr == NULL) {
         return false;
     }
 
@@ -246,7 +283,7 @@ bool string_eq_cstr(const String* s, const char* cstr) {
 bool string_eq_str(const String* s1, const String* s2) {
     assert(s1 != NULL && s2 != NULL);
 
-    if (string_is_empty(s1) || string_is_empty(s2) || (s1->len != s2->len)) {
+    if (is_string_empty(s1) || is_string_empty(s2) || (s1->len != s2->len)) {
         return false;
     }
 
@@ -256,7 +293,7 @@ bool string_eq_str(const String* s1, const String* s2) {
 bool string_has_prefix_cstr(const String* s, const char* cstr) {
     assert(s != NULL);
 
-    if (string_is_empty(s) || cstr == NULL) {
+    if (is_string_empty(s) || cstr == NULL) {
         return false;
     }
 
@@ -271,7 +308,7 @@ bool string_has_prefix_cstr(const String* s, const char* cstr) {
 bool string_has_prefix_str(const String* s1, const String* s2) {
     assert(s1 != NULL && s2 != NULL);
 
-    if (string_is_empty(s1) || string_is_empty(s2) || (s1->len < s2->len)) {
+    if (is_string_empty(s1) || is_string_empty(s2) || (s1->len < s2->len)) {
         return false;
     }
 
@@ -281,7 +318,7 @@ bool string_has_prefix_str(const String* s1, const String* s2) {
 bool string_has_suffix_cstr(const String* s, const char* cstr) {
     assert(s != NULL);
 
-    if (string_is_empty(s) || cstr == NULL) {
+    if (is_string_empty(s) || cstr == NULL) {
         return false;
     }
 
@@ -296,123 +333,125 @@ bool string_has_suffix_cstr(const String* s, const char* cstr) {
 bool string_has_suffix_str(const String* s1, const String* s2) {
     assert(s1 != NULL && s2 != NULL);
 
-    if (string_is_empty(s1) || string_is_empty(s2) || (s1->len < s2->len)) {
+    if (is_string_empty(s1) || is_string_empty(s2) || (s1->len < s2->len)) {
         return false;
     }
 
     return memcmp(s1->text + s1->len - s2->len, s2->text, s2->len) == 0;
 }
 
-u64 string_find_c(const String* s, char c) {
+// Search
+
+i64 string_find_c(const String* s, char c) {
     assert(s != NULL);
 
-    if (string_is_empty(s)) {
-        return STRING_NPOS;
+    if (is_string_empty(s)) {
+        return NPOS;
     }
 
     for (u64 i = 0; i < s->len; ++i) {
         if (s->text[i] == c) {
-            return i;
+            return (i64)i;
         }
     }
 
-    return STRING_NPOS;
+    return NPOS;
 }
 
-u64 string_find_cstr(const String* s, const char* cstr) {
+i64 string_find_cstr(const String* s, const char* cstr) {
     assert(s != NULL);
 
-    if (string_is_empty(s) || cstr == NULL) {
-        return STRING_NPOS;
+    if (is_string_empty(s) || cstr == NULL) {
+        return NPOS;
     }
 
     const u64 len = strlen(cstr);
     if (len == 0 || s->len < len) {
-        return STRING_NPOS;
+        return NPOS;
     }
 
     for (u64 i = 0; i <= s->len - len; ++i) {
         if (s->text[i] == cstr[0]) {
             if (memcmp(s->text + i, cstr, len) == 0) {
-                return i;
+                return (i64)i;
             }
         }
     }
 
-    return STRING_NPOS;
+    return NPOS;
 }
 
-u64 string_find_str(const String* s1, const String* s2) {
+i64 string_find_str(const String* s1, const String* s2) {
     assert(s1 != NULL && s2 != NULL);
 
-    if (string_is_empty(s1) || string_is_empty(s2) || (s1->len < s2->len)) {
-        return STRING_NPOS;
+    if (is_string_empty(s1) || is_string_empty(s2) || (s1->len < s2->len)) {
+        return NPOS;
     }
 
     for (u64 i = 0; i <= s1->len - s2->len; ++i) {
         if (s1->text[i] == s2->text[0]) {
             if (memcmp(s1->text + i, s2->text, s2->len) == 0) {
-                return i;
+                return (i64)i;
             }
         }
     }
 
-    return STRING_NPOS;
+    return NPOS;
 }
 
-u64 string_find_last_c(const String* s, char c) {
+i64 string_find_last_c(const String* s, char c) {
     assert(s != NULL);
 
-    if (string_is_empty(s)) {
-        return STRING_NPOS;
+    if (is_string_empty(s)) {
+        return NPOS;
     }
 
     for (u64 i = s->len; i-- > 0; ) {
         if (s->text[i] == c) {
-            return i;
+            return (i64)i;
         }
     }
 
-    return STRING_NPOS;
+    return NPOS;
 }
 
-u64 string_find_last_cstr(const String* s, const char* cstr) {
+i64 string_find_last_cstr(const String* s, const char* cstr) {
     assert(s != NULL);
 
-    if (string_is_empty(s) || cstr == NULL) {
-        return STRING_NPOS;
+    if (is_string_empty(s) || cstr == NULL) {
+        return NPOS;
     }
 
     const u64 len = strlen(cstr);
     if (len == 0 || s->len < len) {
-        return STRING_NPOS;
+        return NPOS;
     }
 
     for (u64 i = s->len - len + 1; i-- > 0; ) {
         if (s->text[i] == cstr[0]) {
             if (memcmp(s->text + i, cstr, len) == 0) {
-                return i;
+                return (i64)i;
             }
         }
     }
 
-    return STRING_NPOS;
+    return NPOS;
 }
 
-u64 string_find_last_str(const String* s1, const String* s2) {
+i64 string_find_last_str(const String* s1, const String* s2) {
     assert(s1 != NULL && s2 != NULL);
 
-    if (string_is_empty(s1) || string_is_empty(s2) || (s1->len < s2->len)) {
-        return STRING_NPOS;
+    if (is_string_empty(s1) || is_string_empty(s2) || (s1->len < s2->len)) {
+        return NPOS;
     }
 
     for (u64 i = s1->len - s2->len + 1; i-- > 0; ) {
         if (s1->text[i] == s2->text[0]) {
             if (memcmp(s1->text + i, s2->text, s2->len) == 0) {
-                return i;
+                return (i64)i;
             }
         }
     }
 
-    return STRING_NPOS;
+    return NPOS;
 }
