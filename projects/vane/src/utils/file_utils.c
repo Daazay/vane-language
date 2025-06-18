@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <errno.h>
+#include <string.h>
 
 #if defined(PLATFORM_WINDOWS)
 #include <Windows.h>
@@ -25,7 +26,7 @@ IOStatus file_content_load(const String* path, String* content) {
 #if defined(PLATFORM_WINDOWS)
     i32 status = fopen_s(&handle, path->text, "rb");
     if (status != 0 || handle == NULL) {
-#elif
+#else
     handle = fopen(path->text, "rb");
     if (handle == NULL) {
 #endif
@@ -108,7 +109,7 @@ IOStatus dir_walk(const String* path, dir_walk_callback_fn callback_fn, void* ct
     FindClose(h);
     return IO_OK;
 #else
-    DIR* dir = opendir(dirpath->text);
+    DIR* dir = opendir(path->text);
     if (dir == NULL) {
         switch (errno) {
         case ENOENT:  return IO_ERR_NOT_FOUND;
@@ -124,7 +125,7 @@ IOStatus dir_walk(const String* path, dir_walk_callback_fn callback_fn, void* ct
         if (string_eq_cstr(&name, ".") || string_eq_cstr(&name, "..")) {
             continue;
         }
-        String fullpath = path_join_str(2, (const String * []) { path, & name });
+        String fullpath = path_join_str(2, (const String *[]) { path, &name });
 
         struct stat st;
         if (stat(fullpath.text, &st) != 0) {
@@ -139,7 +140,7 @@ IOStatus dir_walk(const String* path, dir_walk_callback_fn callback_fn, void* ct
            .is_dir = S_ISDIR(st.st_mode),
         };
 
-        DirWalkAction action = callback_fn(&entry, ctx);
+        DirWalkAction action = callback_fn(&de, ctx);
         string_destroy(&fullpath);
 
         if (action == DIR_WALK_STOP) {
@@ -148,6 +149,6 @@ IOStatus dir_walk(const String* path, dir_walk_callback_fn callback_fn, void* ct
     }
 
     closedir(dir);
-    return IO_STATUS_OK;
+    return IO_OK;
 #endif
 }

@@ -23,6 +23,11 @@ void vector_init(Vector* vec, u32 init_cap, VectorItemSpecs item_specs) {
         ? init_cap
         : VECTOR_DEFAULT_CAPACITY;
 
+    // DO NOT REMOVE
+    if (cap == 1) {
+        cap = 2;
+    }
+
     vec->raw = malloc((u64)cap * item_specs.size);
     assert(vec->raw != NULL);
 
