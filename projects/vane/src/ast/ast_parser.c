@@ -77,6 +77,20 @@ ASTNode* ast_node_typeref_arr_create(ASTNode* size_expr, ASTNode* typeref, Sourc
     return node;
 }
 
+ASTNode* ast_node_typeref_fun_param_create(ASTNode* id, ASTNode* typeref, SourceLoc loc) {
+    ASTNode* node = ast_node_create(AST_NODE_TYPEREF_FUN_PARAM, loc);
+    node->as.typeref_fun_param.id = id;
+    node->as.typeref_fun_param.typeref = typeref;
+    return node;
+}
+
+ASTNode* ast_node_typeref_fun_create(Vector params, ASTNode* typeref, SourceLoc loc) {
+    ASTNode* node = ast_node_create(AST_NODE_TYPEREF_FUN, loc);
+    node->as.typeref_fun.params = params;
+    node->as.typeref_fun.typeref = typeref;
+    return node;
+}
+
 ASTNode* ast_node_import_decl_create(ASTNode* path, ASTNode* alias, SourceLoc loc) {
     ASTNode* node = ast_node_create(AST_NODE_IMPORT_DECL, loc);
     node->as.import_decl.path = path;
@@ -283,6 +297,7 @@ static ASTNode* ast_parser_parse_typeref_impl(ASTParser* ast_parser) {
     case TOKEN_IDENTIFIER: return ast_parser_parse_typeref_custom(ast_parser);
     case TOKEN_CARET:      return ast_parser_parse_typeref_ptr(ast_parser);
     case TOKEN_L_BRACKET:  return ast_parser_parse_typeref_arr(ast_parser);
+    case TOKEN_L_BRACE:    return ast_parser_parse_typeref_fun(ast_parser);
     default:
         if (is_token_kind_a_builtin_type(token->kind)) {
             return ast_parser_parse_typeref_builtin(ast_parser);
@@ -405,6 +420,116 @@ ASTNode* ast_parser_parse_typeref_arr(ASTParser* ast_parser) {
     }
 
     return ast_node_typeref_arr_create(size_expr, typeref, loc);
+}
+
+ASTNode* ast_parser_parse_typeref_fun_param(ASTParser* ast_parser) {
+    assert(ast_parser != NULL);
+
+    const Token* token = token_stream_peek_next(ast_parser->ts);
+    SourceLoc loc = token->loc;
+
+    ASTNode* id = NULL;
+    ASTNode* typeref = NULL;
+
+    if (token->kind == TOKEN_IDENTIFIER) {
+        // Look ahead to check for colon (named param)
+        token_stream_move_forward(ast_parser->ts);
+        token = token_stream_peek_next(ast_parser->ts);
+
+        if (token->kind == TOKEN_COLON) {
+            token_stream_move_back(ast_parser->ts);
+
+            id = ast_parser_parse_identifier(ast_parser);
+
+            // skip colon token
+            token_stream_move_forward(ast_parser->ts);
+
+            typeref = ast_parser_parse_typeref(ast_parser);
+            loc.range.end = typeref->loc.range.end;
+        }
+        else {
+            token_stream_move_back(ast_parser->ts);
+
+            typeref = ast_parser_parse_typeref(ast_parser);
+            loc.range.end = typeref->loc.range.end;
+        }
+    }
+    else {
+        typeref = ast_parser_parse_typeref(ast_parser);
+        loc.range.end = typeref->loc.range.end;
+    }
+
+    if (typeref->kind == AST_NODE_ERROR) {
+        ast_node_destroy(id);
+        TRACE_FAILED_TO_PARSE_AST(loc, AST_NODE_TYPEREF_FUN_PARAM);
+        return ast_node_error_create(AST_NODE_TYPEREF_FUN_PARAM, typeref, loc);
+    }
+
+    return ast_node_typeref_fun_param_create(id, typeref, loc);
+}
+
+ASTNode* ast_parser_parse_typeref_fun(ASTParser* ast_parser) {
+    assert(ast_parser != NULL);
+
+    const Token* token = token_stream_advance_if(ast_parser->ts, TOKEN_L_BRACE);
+    if (token->kind != TOKEN_L_BRACE) {
+        TRACE_FAILED_TO_PARSE_AST(token->loc, AST_NODE_TYPEREF_FUN);
+        return ast_node_error_create(AST_NODE_TYPEREF_FUN, NULL, token->loc);
+    }
+
+    SourceLoc loc = token->loc;
+    Vector params = vector_create(4, VECTOR_ITEM_SPECS(ASTNode*, &ast_node_destroy));
+
+    token = token_stream_peek_next(ast_parser->ts);
+    while (!is_token_stream_end(ast_parser->ts) && token->kind != TOKEN_R_BRACE) {
+        ASTNode* param = ast_parser_parse_typeref_fun_param(ast_parser);
+        loc.range.end = param->loc.range.end;
+
+        if (param->kind == AST_NODE_ERROR) {
+            vector_destroy(&params);
+            TRACE_FAILED_TO_PARSE_AST(loc, AST_NODE_TYPEREF_FUN);
+            return ast_node_error_create(AST_NODE_TYPEREF_FUN, param, loc);
+        }
+
+        vector_push_back(&params, &param);
+
+        token = token_stream_peek_next(ast_parser->ts);
+        if (token->kind == TOKEN_COMMA) {
+            token_stream_move_forward(ast_parser->ts);
+            token = token_stream_peek_next(ast_parser->ts);
+            continue;
+        }
+        break;
+    }
+
+    token = token_stream_advance_if(ast_parser->ts, TOKEN_R_BRACE);
+    loc.range.end = token->loc.range.end;
+
+    if (token->kind != TOKEN_R_BRACE) {
+        vector_destroy(&params);
+        TRACE_FAILED_TO_PARSE_AST(loc, AST_NODE_TYPEREF_FUN);
+        return ast_node_error_create(AST_NODE_TYPEREF_FUN, NULL, loc);
+    }
+
+    token = token_stream_advance_if(ast_parser->ts, TOKEN_COLON);
+    loc.range.end = token->loc.range.end;
+
+    if (token->kind != TOKEN_COLON) {
+        vector_destroy(&params);
+        TRACE_FAILED_TO_PARSE_AST(loc, AST_NODE_TYPEREF_FUN);
+        return ast_node_error_create(AST_NODE_TYPEREF_FUN, NULL, loc);
+    }
+
+    ASTNode* typeref = ast_parser_parse_typeref(ast_parser);
+    loc.range.end = typeref->loc.range.end;
+
+    if (typeref->kind == AST_NODE_ERROR) {
+        vector_destroy(&params);
+        TRACE_FAILED_TO_PARSE_AST(loc, AST_NODE_TYPEREF_FUN);
+        return ast_node_error_create(AST_NODE_TYPEREF_FUN, typeref, loc);
+    }
+
+    return ast_node_typeref_fun_create(params, typeref, loc);
 }
 
 ASTNode* ast_parser_parse_package_entity(ASTParser* ast_parser) {
@@ -707,7 +832,7 @@ ASTNode* ast_parser_parse_stmt_typealias_decl(ASTParser* ast_parser) {
     ASTNode* typeref = ast_parser_parse_typeref(ast_parser);
     loc.range.end = typeref->loc.range.end;
 
-    if (id->kind == AST_NODE_ERROR) {
+    if (typeref->kind == AST_NODE_ERROR) {
         ast_node_destroy(id);
         REPORT_FAILED_TO_PARSE_AST(loc, AST_NODE_STMT_TYPEALIAS_DECL);
         return ast_node_error_create(AST_NODE_STMT_TYPEALIAS_DECL, typeref, loc);

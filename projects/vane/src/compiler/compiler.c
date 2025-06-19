@@ -79,7 +79,7 @@ static DirWalkAction package_walk_file_callback(String* path_, void* data) {
         RC_REPORT_INTERNAL_ERROR(&ctx->compiler->rc, "File not found - `%.*s`", (i32)path->len, path->text);
         return DIR_WALK_CONTINUE;
     case IO_ERR_EMPTY_FILE:
-        RC_REPORT_INTERNAL_ERROR(&ctx->compiler->rc, "File is empty  - `%.*s`", (i32)path->len, path->text);
+        RC_REPORT_INTERNAL_WARN(&ctx->compiler->rc, "File is empty  - `%.*s`", (i32)path->len, path->text);
         return DIR_WALK_CONTINUE;
     case IO_ERR_READ_FAILED:
         RC_REPORT_INTERNAL_ERROR(&ctx->compiler->rc, "Failed to read file content  - `%.*s`", (i32)path->len, path->text);

@@ -42,11 +42,14 @@ void report_trace_destroy(ReportTrace* trace) {
     string_destroy(&trace->msg);
 }
 
-void report_trace_print(const ReportTrace* trace) {
+void report_trace_print(const ReportTrace* trace, bool with_loc) {
     assert(trace != NULL);
 
     printf("%.*s", (i32)trace->msg.len, trace->msg.text);
-    print_at_loc(&trace->loc);
+
+    if (with_loc) {
+        print_at_loc(&trace->loc);
+    }
     printf("\n");
 }
 
@@ -156,7 +159,7 @@ static void report_traces_print(const Report* report, bool colored) {
         for (u32 i = report->traces.size; i-- > 0; ) {
             const ReportTrace* t = vector_at(&report->traces, i);
             printf("    -> ");
-            report_trace_print(t);
+            report_trace_print(t, i == 0);
         }
     }
     else {
@@ -164,7 +167,7 @@ static void report_traces_print(const Report* report, bool colored) {
         for (u32 i = total; i-- > total - REPORT_TRACES_PRINT_HEAD_COUNT; ) {
             const ReportTrace* t = vector_at(&report->traces, i);
             printf("    -> ");
-            report_trace_print(t);
+            report_trace_print(t, false);
         }
 
         u32 hidden_count = total - (REPORT_TRACES_PRINT_HEAD_COUNT + REPORT_TRACES_PRINT_TAIL_COUNT);
@@ -175,7 +178,7 @@ static void report_traces_print(const Report* report, bool colored) {
         for (u32 i = REPORT_TRACES_PRINT_TAIL_COUNT; i-- > 0; ) {
             const ReportTrace* t = vector_at(&report->traces, i);
             printf("    -> ");
-            report_trace_print(t);
+            report_trace_print(t, i == 0);
         }
     }
 

@@ -18,6 +18,9 @@ void ast_dot_visitor_print_fn(ASTNode* parent, ASTNode* node, void* data) {
     case AST_NODE_IDENTIFIER:
         fprintf(ctx->out, "%.*s", (i32)node->as.id.value.len, node->as.id.value.text);
         break;
+    case AST_NODE_TYPEREF_BUILTIN:
+        fprintf(ctx->out, "%s", get_token_kind_value(node->as.typeref_builtin.kind));
+        break;
     case AST_NODE_TYPEREF_CUSTOM:
         fprintf(ctx->out, "%.*s", (i32)node->as.typeref_custom.value.len, node->as.typeref_custom.value.text);
         break;

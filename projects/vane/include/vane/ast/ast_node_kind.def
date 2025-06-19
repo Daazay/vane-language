@@ -143,6 +143,31 @@ AST_NODE_TYPEREF(ARR, "arr", struct {
     AST_NODE_VISIT_CHILD_FN(node->as.typeref_arr.typeref);
 )
 
+AST_NODE_TYPEREF(FUN_PARAM, "fun:param", struct {
+    ASTNode* id;
+    ASTNode* typeref;
+} typeref_fun_param;,
+    ast_node_destroy(node->as.typeref_fun_param.id);
+    ast_node_destroy(node->as.typeref_fun_param.typeref);,
+
+    AST_NODE_VISIT_CHILD_FN(node->as.typeref_fun_param.id);
+    AST_NODE_VISIT_CHILD_FN(node->as.typeref_fun_param.typeref);
+)
+
+AST_NODE_TYPEREF(FUN, "fun", struct {
+    Vector params;
+    ASTNode* typeref;
+} typeref_fun;,
+    vector_destroy(&node->as.typeref_fun.params);
+    ast_node_destroy(node->as.typeref_fun.typeref);,
+
+    AST_NODE_VISIT_CHILD_FN(node->as.typeref_fun.typeref);
+
+    for (u32 i = 0; i < node->as.typeref_fun.params.size; ++i) {
+        AST_NODE_VISIT_CHILD_FN(vector_at(&node->as.typeref_fun.params, i));
+    }
+)
+
 /*..............................STMT..........................................*/
 
 #ifndef AST_NODE_STMT

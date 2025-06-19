@@ -31,7 +31,7 @@ ReportTrace report_trace_create(SourceLoc loc, String msg);
 
 void report_trace_destroy(ReportTrace* trace);
 
-void report_trace_print(const ReportTrace* trace);
+void report_trace_print(const ReportTrace* trace, bool with_loc);
 
 Report* report_create();
 

@@ -45,6 +45,8 @@ int main(int argc, char** argv) {
     }
 
     if (build_options.command == BUILD_COMMAND_PARSE_AST) {
+        report_collector_print_all(&compiler.rc, build_options.general_options.colored_output, build_options.general_options.debug);
+
         compiler_print_ast(&compiler);
 
         compiler_destroy(&compiler);
@@ -60,6 +62,8 @@ int main(int argc, char** argv) {
     compiler_resolve_imports(&compiler);
 
     if (build_options.command == BUILD_COMMAND_SHOW_IMPORTS) {
+        report_collector_print_all(&compiler.rc, build_options.general_options.colored_output, build_options.general_options.debug);
+
         compiler_show_imports(&compiler);
 
         compiler_destroy(&compiler);

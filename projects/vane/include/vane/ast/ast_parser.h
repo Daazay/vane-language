@@ -37,6 +37,10 @@ ASTNode* ast_parser_parse_typeref_ptr(ASTParser* ast_parser);
 
 ASTNode* ast_parser_parse_typeref_arr(ASTParser* ast_parser);
 
+ASTNode* ast_parser_parse_typeref_fun_param(ASTParser* ast_parser);
+
+ASTNode* ast_parser_parse_typeref_fun(ASTParser* ast_parser);
+
 /*...............................PACKAGE............................*/
 
 ASTNode* ast_parser_parse_package_entity(ASTParser* ast_parser);

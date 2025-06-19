@@ -3,8 +3,11 @@
 #include "vane/utils/string_builder.h"
 
 #define TOKEN_STREAM_BEGIN_IDX -1
+#define TOKEN_STREAM_WINDOW_SIZE 2
 
 static inline  void token_stream_parse_next(TokenStream* ts) {
+    assert(ts != NULL);
+
     if (!ts->done) {
         Token token = scanner_scan_next(&ts->scanner);
         vector_push_back(&ts->tokens, &token);
@@ -12,6 +15,14 @@ static inline  void token_stream_parse_next(TokenStream* ts) {
         if (token.kind == TOKEN_EOF_) {
             ts->done = true;
         }
+    }
+}
+
+static inline void token_stream_parse_window(TokenStream* ts, u32 window_size) {
+    assert(ts != NULL);
+
+    while (!ts->done && ts->idx + window_size >= ts->tokens.size) {
+        token_stream_parse_next(ts);
     }
 }
 
@@ -42,7 +53,7 @@ void token_stream_destroy(TokenStream* ts) {
 bool is_token_stream_end(const TokenStream* ts) {
     assert(ts != NULL);
 
-    if (ts->done && (ts->idx + 2 >= (i32)ts->tokens.size)) {
+    if (ts->done && (ts->idx + TOKEN_STREAM_WINDOW_SIZE >= (i32)ts->tokens.size)) {
         return true;
     }
     return false;
@@ -57,10 +68,11 @@ bool is_token_stream_new_line(const TokenStream* ts) {
 void token_stream_move_forward(TokenStream* ts) {
     assert(ts != NULL);
 
-    if (ts->idx + 1 == (i32)ts->tokens.size) {
-        assert(!ts->done && "the end of token stream reached");
-        token_stream_parse_next(ts);
+    if (ts->idx + TOKEN_STREAM_WINDOW_SIZE + 1 >= (i32)ts->tokens.size) {
+        token_stream_parse_window(ts, TOKEN_STREAM_WINDOW_SIZE + 1);
     }
+
+    assert((ts->idx < (i32)ts->tokens.size) && "the end of token stream reached");
     ts->idx++;
 }
 
@@ -74,8 +86,8 @@ void token_stream_move_back(TokenStream* ts) {
 const Token* token_stream_get_curr(TokenStream* ts) {
     assert(ts != NULL);
 
-    if (!ts->done && (ts->idx + 1 == (i32)ts->tokens.size)) {
-        token_stream_parse_next(ts);
+    if (ts->idx + TOKEN_STREAM_WINDOW_SIZE >= (i32)ts->tokens.size) {
+        token_stream_parse_window(ts, TOKEN_STREAM_WINDOW_SIZE);
     }
 
     if (ts->idx < 0) {
@@ -88,12 +100,14 @@ const Token* token_stream_get_curr(TokenStream* ts) {
 const Token* token_stream_peek_next(TokenStream* ts) {
     assert(ts != NULL);
 
-    if (ts->idx + 1 == (i32)ts->tokens.size) {
-        if (ts->done) {
-            return NULL;
-        }
-        token_stream_parse_next(ts);
+    if (ts->idx + TOKEN_STREAM_WINDOW_SIZE + 1 >= (i32)ts->tokens.size) {
+        token_stream_parse_window(ts, TOKEN_STREAM_WINDOW_SIZE + 1);
     }
+
+    if (ts->idx + 1 == (i32)ts->tokens.size && ts->done) {
+        return NULL;
+    }
+
     return vector_at(&ts->tokens, ts->idx + 1);
 }
 
