@@ -41,6 +41,8 @@ void compiler_destroy(Compiler* compiler) {
     hashmap_destroy(&compiler->packages);
 
     report_collector_destroy(&compiler->rc);
+
+    build_options_destroy(compiler->build_options);
 }
 
 struct PackageWalkCtx {
@@ -274,6 +276,50 @@ bool compiler_print_ast(Compiler* compiler) {
             printf("[file: %.*s]\n", (i32)source_file->path->len, source_file->path->text);
 
             ast_print_dot(source_file->ast, stdout);
+        }
+    }
+
+    return true;
+}
+
+bool compiler_show_imports(Compiler* compiler) {
+    assert(compiler != NULL);
+
+    HashmapIterator package_it = hashmap_get_it(&compiler->packages);
+    while (hashmap_it_next(&package_it)) {
+        const Package* package = package_it.value;
+        if (package == NULL) {
+            continue;
+        }
+
+        //printf("[package:%.*s] - `%lld`\n", (i32)package->name.len, package->name.text, (u64)package);
+
+        HashmapIterator source_file_it = hashmap_get_it(&package->source_files);
+        while (hashmap_it_next(&source_file_it)) {
+            const SourceFile* source_file = source_file_it.value;
+            if (source_file == NULL) {
+                continue;
+            }
+
+            printf("file:`%.*s`\n", (i32)source_file->path->len, source_file->path->text);
+
+            if (source_file->imports.size == 0) {
+                continue;
+            }
+
+            for (u32 i = 0; i < source_file->imports.size; ++i) {
+                const ImportEntry* import = vector_at(&source_file->imports, i);
+                const String* ast_path = &import->node->as.import_decl.path->as.expr_literal.value;
+
+                printf("    - [package:%.*s] - ", (i32)ast_path->len, ast_path->text);
+
+                if (import->target == NULL) {
+                    printf("unresolved\n");
+                }
+                else {
+                    printf("`%.*s`\n", (i32)import->target->path->len, import->target->path->text);
+                }
+            }
         }
     }
 

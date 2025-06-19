@@ -31,9 +31,9 @@ int main(int argc, char** argv) {
 
     Package* root_package = compiler_load_package(&compiler, &build_options.root_path);
     if (root_package == NULL) {
-        compiler_destroy(&compiler);
-        build_options_destroy(&build_options);
+        report_collector_print_all(&compiler.rc, build_options.general_options.colored_output, build_options.general_options.debug);
 
+        compiler_destroy(&compiler);
         return 1;
     }
 
@@ -41,8 +41,6 @@ int main(int argc, char** argv) {
         report_collector_print_all(&compiler.rc, build_options.general_options.colored_output, build_options.general_options.debug);
 
         compiler_destroy(&compiler);
-        build_options_destroy(&build_options);
-
         return 1;
     }
 
@@ -50,18 +48,22 @@ int main(int argc, char** argv) {
         compiler_print_ast(&compiler);
 
         compiler_destroy(&compiler);
-        build_options_destroy(&build_options);
-
         return 0;
     }
 
-    if (!compiler_resolve_imports(&compiler)) {
-        report_collector_print_all(&compiler.rc, build_options.general_options.colored_output, build_options.general_options.debug);
+    //if (!compiler_resolve_imports(&compiler)) {
+    //    report_collector_print_all(&compiler.rc, build_options.general_options.colored_output, build_options.general_options.debug);
+
+    //    compiler_destroy(&compiler);
+    //    return 1;
+    //}
+    compiler_resolve_imports(&compiler);
+
+    if (build_options.command == BUILD_COMMAND_SHOW_IMPORTS) {
+        compiler_show_imports(&compiler);
 
         compiler_destroy(&compiler);
-        build_options_destroy(&build_options);
-
-        return 1;
+        return 0;
     }
 
 
@@ -72,7 +74,5 @@ int main(int argc, char** argv) {
 
 
     compiler_destroy(&compiler);
-    build_options_destroy(&build_options);
-
     return 0;
 }

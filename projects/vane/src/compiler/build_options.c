@@ -21,10 +21,12 @@ void print_usage(const char* argv0) {
     PRINT_LINE("  --collection <NAME:PATH>  Adds collection path.");
     PRINT_LINE("");
     PRINT_LINE("Commands:");
-    PRINT_LINE("  parse_ast                 Parse project to abstract syntax tree.");
+    PRINT_LINE("  parse_ast <PATH>          Parse project to abstract syntax tree.");
+    PRINT_LINE("  show_imports <PATH>       Prints resolved/unresolved imports for project.");
     PRINT_LINE("  help                      Prints this help.");
     PRINT_LINE("");
     PRINT_LINE("Command specific options:");
+    PRINT_LINE("  parse_ast:");
     PRINT_LINE("  --save                    Save parsed ast to file.");
 }
 
@@ -111,6 +113,8 @@ static bool parse_option(ArgParser* parser) {
             return false;
         }
         return true;
+    case BUILD_COMMAND_SHOW_IMPORTS:
+        return true;
     default:
         break;
     }
@@ -126,7 +130,7 @@ static bool parse_command_args(ArgParser* parser) {
         break;
     case BUILD_COMMAND_HELP:
         break;
-    case BUILD_COMMAND_PARSE_AST:
+    case BUILD_COMMAND_PARSE_AST: {
         if (!has_next_arg(parser) || is_next_option(parser)) {
             PRINT_ERROR_LINE("no path povided.");
             return false;
@@ -134,6 +138,17 @@ static bool parse_command_args(ArgParser* parser) {
 
         const char* arg = advance_arg(parser);
         parser->options->root_path = string_from_cstr(arg);
+    } break;
+    case BUILD_COMMAND_SHOW_IMPORTS: {
+        if (!has_next_arg(parser) || is_next_option(parser)) {
+            PRINT_ERROR_LINE("no path povided.");
+            return false;
+        }
+
+        const char* arg = advance_arg(parser);
+        parser->options->root_path = string_from_cstr(arg);
+        break;
+    } break;
     }
     return true;
 }
@@ -144,6 +159,9 @@ static bool parse_command(ArgParser* parser) {
     }
     else if (match_arg(parser->current_arg, "parse_ast")) {
         parser->options->command = BUILD_COMMAND_PARSE_AST;
+    }
+    else if (match_arg(parser->current_arg, "show_imports")) {
+        parser->options->command = BUILD_COMMAND_SHOW_IMPORTS;
     }
 
     if (parser->options->command == BUILD_COMMAND_MISSING) {
@@ -172,7 +190,8 @@ bool build_options_init(BuildOptions* options) {
     options->general_options.colored_output = is_terminal_support_colors();
 
     // Command Specific Options
-    // : PARSE_AST
+
+    // :PARSE_AST
     options->command_options.parse_ast.save_to_file = false;
 
     return true;

@@ -2,6 +2,7 @@
 
 #include "vane/utils/defines.h"
 #include "vane/utils/string.h"
+#include "vane/utils/vector.h"
 #include "vane/utils/hashmap.h"
 
 typedef enum BuildCommand BuildCommand;
@@ -11,6 +12,7 @@ enum BuildCommand {
     BUILD_COMMAND_MISSING = 0,
     BUILD_COMMAND_HELP,
     BUILD_COMMAND_PARSE_AST,
+    BUILD_COMMAND_SHOW_IMPORTS,
 };
 
 struct BuildOptions {

@@ -36,3 +36,5 @@ bool compiler_parse_source_files(Compiler* compiler);
 bool compiler_resolve_imports(Compiler* compiler);
 
 bool compiler_print_ast(Compiler* compiler);
+
+bool compiler_show_imports(Compiler* compiler);
