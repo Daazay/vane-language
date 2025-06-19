@@ -25,25 +25,23 @@ void ast_parser_destroy(ASTParser* ast_parser);
 
 ASTNode* ast_parser_parse_identifier(ASTParser* ast_parser);
 
-/*...............................TYPE...............................*/
+/*...............................TYPEREF............................*/
 
-ASTNode* ast_parser_parse_type(ASTParser* ast_parser);
+ASTNode* ast_parser_parse_typeref(ASTParser* ast_parser);
 
-ASTNode* ast_parser_parse_type_builtin(ASTParser* ast_parser);
+ASTNode* ast_parser_parse_typeref_builtin(ASTParser* ast_parser);
 
-ASTNode* ast_parser_parse_type_custom(ASTParser* ast_parser);
+ASTNode* ast_parser_parse_typeref_custom(ASTParser* ast_parser);
 
-ASTNode* ast_parser_parse_type_ptr(ASTParser* ast_parser);
+ASTNode* ast_parser_parse_typeref_ptr(ASTParser* ast_parser);
 
-ASTNode* ast_parser_parse_type_arr(ASTParser* ast_parser);
+ASTNode* ast_parser_parse_typeref_arr(ASTParser* ast_parser);
 
 /*...............................PACKAGE............................*/
 
 ASTNode* ast_parser_parse_package_entity(ASTParser* ast_parser);
 
 ASTNode* ast_parser_parse_import_decl(ASTParser* ast_parser);
-
-ASTNode* ast_parser_parse_typealias_decl(ASTParser* ast_parser);
 
 ASTNode* ast_parser_parse_fun_param(ASTParser* ast_parser);
 
@@ -54,6 +52,8 @@ ASTNode* ast_parser_parse_fun_decl(ASTParser* ast_parser);
 /*...............................STMT...............................*/
 
 ASTNode* ast_parser_parse_stmt(ASTParser* ast_parser);
+
+ASTNode* ast_parser_parse_stmt_typealias_decl(ASTParser* ast_parser);
 
 ASTNode* ast_parser_parse_stmt_block(ASTParser* ast_parser);
 
