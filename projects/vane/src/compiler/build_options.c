@@ -13,15 +13,19 @@
 #define VANE_VENV_NAME "VANE_LANG_ROOT"
 
 void print_usage(const char* argv0) {
-    PRINT_LINE("Usage: %s [GENERAL OPTIONS] COMMAND [ARGUMENTS]", argv0);
+    PRINT_LINE("Usage: %s [GENERAL OPTIONS] COMMAND [ARGUMENTS] [COMMAND OPTIONS]", argv0);
     PRINT_LINE("");
     PRINT_LINE("General options:");
-    PRINT_LINE("  --debug              Print debug reports.");
+    PRINT_LINE("  --output_dir <PATH>       Set output directory path.");
+    PRINT_LINE("  --debug                   Print debug reports.");
     PRINT_LINE("  --collection <NAME:PATH>  Adds collection path.");
     PRINT_LINE("");
     PRINT_LINE("Commands:");
-    PRINT_LINE("  build   Build project.");
-    PRINT_LINE("  help    Prints this help.");
+    PRINT_LINE("  parse_ast                 Parse project to abstract syntax tree.");
+    PRINT_LINE("  help                      Prints this help.");
+    PRINT_LINE("");
+    PRINT_LINE("Command specific options:");
+    PRINT_LINE("  --save                    Save parsed ast to file.");
 }
 
 typedef struct ArgParser ArgParser;
@@ -57,11 +61,23 @@ static inline const char* advance_arg(ArgParser* parser) {
 
 static bool parse_option(ArgParser* parser) {
     const char* op = parser->current_arg + 2; // skip '--'
-
     switch (parser->options->command) {
     case BUILD_COMMAND_MISSING:
         // GENERAL OPTIONS
-        if (match_arg(op, "collection")) {
+        if (match_arg(op, "output_dir")) {
+            if (has_next_arg(parser) && !is_next_option(parser)) {
+                if (!is_string_empty(&parser->options->general_options.output_dir)) {
+                    string_destroy(&parser->options->general_options.output_dir);
+                }
+                const char* arg = advance_arg(parser);
+                parser->options->general_options.output_dir = string_from_cstr(arg);
+                return true;
+            }
+
+            PRINT_ERROR_LINE("the argument for 'collection' option was not provided.");
+            return false;
+        }
+        else if (match_arg(op, "collection")) {
             if (has_next_arg(parser) && !is_next_option(parser)) {
                 const char* arg_ = advance_arg(parser);
                 String arg = string_create(arg_, strlen(arg_));
@@ -83,14 +99,17 @@ static bool parse_option(ArgParser* parser) {
             return false;
         }
         else if (match_arg(op, "debug")) {
-            parser->options->debug = true;
-
+            parser->options->general_options.debug = true;
             return true;
         }
         break;
     case BUILD_COMMAND_HELP:
         return true;
-    case BUILD_COMMAND_BUILD:
+    case BUILD_COMMAND_PARSE_AST:
+        if (match_arg(op, "save")) {
+            parser->options->command_options.parse_ast.save_to_file = true;
+            return false;
+        }
         return true;
     default:
         break;
@@ -107,7 +126,7 @@ static bool parse_command_args(ArgParser* parser) {
         break;
     case BUILD_COMMAND_HELP:
         break;
-    case BUILD_COMMAND_BUILD:
+    case BUILD_COMMAND_PARSE_AST:
         if (!has_next_arg(parser) || is_next_option(parser)) {
             PRINT_ERROR_LINE("no path povided.");
             return false;
@@ -123,8 +142,8 @@ static bool parse_command(ArgParser* parser) {
     if (match_arg(parser->current_arg, "help")) {
         parser->options->command = BUILD_COMMAND_HELP;
     }
-    else if (match_arg(parser->current_arg, "build")) {
-        parser->options->command = BUILD_COMMAND_BUILD;
+    else if (match_arg(parser->current_arg, "parse_ast")) {
+        parser->options->command = BUILD_COMMAND_PARSE_AST;
     }
 
     if (parser->options->command == BUILD_COMMAND_MISSING) {
@@ -147,8 +166,14 @@ bool build_options_init(BuildOptions* options) {
         HASHMAP_VALUE_SPECS(String, &string_destroy)
     );
 
-    options->debug = false;
-    options->colored_output = is_terminal_support_colors();
+    // General options
+    options->general_options.output_dir = string_from_cstr("./build");
+    options->general_options.debug = false;
+    options->general_options.colored_output = is_terminal_support_colors();
+
+    // Command Specific Options
+    // : PARSE_AST
+    options->command_options.parse_ast.save_to_file = false;
 
     return true;
 }
@@ -215,4 +240,9 @@ void build_options_destroy(BuildOptions* options) {
 
     string_destroy(&options->root_path);
     hashmap_destroy(&options->collections);
+
+    // General options
+    string_destroy(&options->general_options.output_dir);
+
+    // Command specific options
 }

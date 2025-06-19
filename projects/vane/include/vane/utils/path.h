@@ -39,6 +39,8 @@ String path_join_cstr(u32 count, const char* paths[]);
 
 String path_join_str(u32 count, const String* paths[]);
 
+String path_build(const String* dir, const String* name, const String* ext);
+
 bool is_path_absolute(const String* path);
 
 bool is_path_exist(const String* path);

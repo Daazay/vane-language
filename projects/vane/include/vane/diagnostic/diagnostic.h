@@ -17,7 +17,6 @@ enum DiagnosticSeverity {
 
 enum DiagnosticKind {
     DIAG_KIND_NONE = 0,
-    DIAG_KIND_IO,
     DIAG_KIND_LEXICAL,
     DIAG_KIND_SYNTAX,
     DIAG_KIND_INTERNAL,

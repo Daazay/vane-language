@@ -1,8 +1,12 @@
 #include "vane/compiler/compiler.h"
 
+#include <stdio.h>
+
 #include "vane/utils/hash.h"
 #include "vane/utils/file_utils.h"
 #include "vane/utils/path.h"
+
+#include "vane/ast/visitors/ast_dot_visitor.h"
 
 #pragma region UTILITIES
 
@@ -67,16 +71,16 @@ static DirWalkAction package_walk_file_callback(String* path_, void* data) {
     switch (status) {
     case IO_OK: break;
     case IO_ERR_INVALID_PATH:
-        RC_REPORT_IO_ERROR(&ctx->compiler->rc, path, "Invalid path.");
+        RC_REPORT_INTERNAL_ERROR(&ctx->compiler->rc, "Invalid filepath  - `%.*s`", (i32)path->len, path->text);
         return DIR_WALK_CONTINUE;
     case IO_ERR_NOT_FOUND:
-        RC_REPORT_IO_ERROR(&ctx->compiler->rc, path, "File not found.");
+        RC_REPORT_INTERNAL_ERROR(&ctx->compiler->rc, "File not found - `%.*s`", (i32)path->len, path->text);
         return DIR_WALK_CONTINUE;
     case IO_ERR_EMPTY_FILE:
-        RC_REPORT_IO_DEBUG(&ctx->compiler->rc, path, "File is empty");
+        RC_REPORT_INTERNAL_ERROR(&ctx->compiler->rc, "File is empty  - `%.*s`", (i32)path->len, path->text);
         return DIR_WALK_CONTINUE;
     case IO_ERR_READ_FAILED:
-        RC_REPORT_IO_ERROR(&ctx->compiler->rc, path, "Failed to read file content.");
+        RC_REPORT_INTERNAL_ERROR(&ctx->compiler->rc, "Failed to read file content  - `%.*s`", (i32)path->len, path->text);
         return DIR_WALK_CONTINUE;
     default:
         unreachable();
@@ -151,13 +155,13 @@ Package* compiler_load_package(Compiler* compiler, const String* dirpath) {
     switch (status) {
     case IO_OK: break;
     case IO_ERR_INVALID_PATH:
-        RC_REPORT_IO_ERROR(&compiler->rc, path, "Invalid path");
+        RC_REPORT_INTERNAL_ERROR(&compiler->rc, "Invalid directoty path - `%.*s`", (i32)path->len, path->text);
         return NULL;
     case IO_ERR_NOT_FOUND:
-        RC_REPORT_IO_ERROR(&compiler->rc, path, "Directory not found");
+        RC_REPORT_INTERNAL_ERROR(&compiler->rc, "Directory not found - `%.*s`", (i32)path->len, path->text);
         return NULL;
     case IO_ERR_READ_FAILED:
-        RC_REPORT_IO_ERROR(&compiler->rc, path, "Failed to read directory entries");
+        RC_REPORT_INTERNAL_ERROR(&compiler->rc, "Failed to read directory entries - `%.*s`", (i32)path->len, path->text);
         return NULL;
     default:
         unreachable();
@@ -240,4 +244,38 @@ bool compiler_resolve_imports(Compiler* compiler) {
     }
 
     return success;
+}
+
+bool compiler_print_ast(Compiler* compiler) {
+    assert(compiler != NULL);
+
+    bool save_to_file = compiler->build_options->command_options.parse_ast.save_to_file;
+
+    if (save_to_file) {
+        // TODO:
+        unreachable();
+        return false;
+    }
+
+    HashmapIterator package_it = hashmap_get_it(&compiler->packages);
+    while (hashmap_it_next(&package_it)) {
+        const Package* package = package_it.value;
+        if (package == NULL) {
+            continue;
+        }
+
+        HashmapIterator source_file_it = hashmap_get_it(&package->source_files);
+        while (hashmap_it_next(&source_file_it)) {
+            const SourceFile* source_file = source_file_it.value;
+            if (source_file == NULL) {
+                continue;
+            }
+
+            printf("[file: %.*s]\n", (i32)source_file->path->len, source_file->path->text);
+
+            ast_print_dot(source_file->ast, stdout);
+        }
+    }
+
+    return true;
 }

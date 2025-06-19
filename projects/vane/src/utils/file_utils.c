@@ -7,12 +7,33 @@
 
 #if defined(PLATFORM_WINDOWS)
 #include <Windows.h>
+#include <direct.h>
 #else
 #include <dirent.h>
 #include <sys/stat.h>
 #endif
 
 #include "vane/utils/path.h"
+
+const char* get_io_status_text(IOStatus status) {
+    switch (status) {
+    case IO_OK:                return "ok";
+    case IO_ERR_INVALID_PATH:  return "invalid path";
+    case IO_ERR_NOT_FOUND:     return "not found";
+    case IO_ERR_NOT_FILE:      return "not file";
+    case IO_ERR_NOT_DIR:       return "not dir";
+    case IO_ERR_IS_FILE:       return "is file";
+    case IO_ERR_IS_DIR:        return "is dir";
+    case IO_ERR_ALREADY_EXIST: return "already exist";
+    case IO_ERR_ACCESS_DENIED: return "access denied";
+    case IO_ERR_EMPTY_FILE:    return "empty file";
+    case IO_ERR_READ_FAILED:   return "read failed";
+    case IO_ERR_UNKNOWN:       return "unknown error";
+    default:
+        unreachable();
+        return NULL;
+    }
+}
 
 IOStatus file_content_load(const String* path, String* content) {
     assert(path != NULL && content != NULL);
@@ -31,8 +52,9 @@ IOStatus file_content_load(const String* path, String* content) {
     if (handle == NULL) {
 #endif
         switch (errno) {
+        case EACCES:
+        case EPERM:  return IO_ERR_ACCESS_DENIED;
         case ENOENT: return IO_ERR_NOT_FOUND;
-        case EACCES: return IO_ERR_ACCESS_DENIED;
         default:     return IO_ERR_READ_FAILED;
         }
     }
@@ -172,4 +194,62 @@ IOStatus dir_walk(const String * path, const DirWalkCtx * ctx) {
     closedir(dir);
     return IO_OK;
 #endif
+}
+
+IOStatus file_create(const String* path, bool overwrite) {
+    assert(path != NULL);
+
+    if (is_string_empty(path)) {
+        return IO_ERR_INVALID_PATH;
+    }
+
+    FILE* handle = NULL;
+
+#if defined(PLATFORM_WINDOWS)
+    i32 status = fopen_s(&handle, path->text, overwrite ? "w" : "wx");
+    if (status != 0 || handle == NULL) {
+#else
+    handle = fopen(path->text, overwrite ? "w" : "wx");
+    if (handle == NULL) {
+#endif
+        switch (errno) {
+        case EACCES:
+        case EPERM:  return IO_ERR_ACCESS_DENIED;
+        case EEXIST: return IO_ERR_ALREADY_EXIST;
+        case ENOENT: return IO_ERR_NOT_FOUND;
+        case EISDIR: return IO_ERR_IS_DIR;
+        default:     return IO_ERR_UNKNOWN;
+        }
+    }
+
+    fclose(handle);
+
+    return IO_OK;
+}
+
+
+IOStatus dir_create(const String* path) {
+    assert(path != NULL);
+
+    if (is_string_empty(path)) {
+        return IO_ERR_INVALID_PATH;
+    }
+
+#if defined(PLATFORM_WINDOWS)
+    if (_mkdir(path->text) == 0) {
+        return IO_OK;
+    }
+#else
+    if (mkdir(path->text, 0755) == 0) {
+        return IO_OK;
+    }
+#endif
+
+    switch (errno) {
+    case EACCES:
+    case EPERM:  return IO_ERR_ACCESS_DENIED;
+    case EEXIST: return IO_ERR_ALREADY_EXIST;
+    case ENOENT: return IO_ERR_NOT_FOUND;
+    default:     return IO_ERR_UNKNOWN;
+    }
 }

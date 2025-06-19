@@ -34,3 +34,5 @@ Package* compiler_load_imported_package(Compiler* compiler, const String* import
 bool compiler_parse_source_files(Compiler* compiler);
 
 bool compiler_resolve_imports(Compiler* compiler);
+
+bool compiler_print_ast(Compiler* compiler);

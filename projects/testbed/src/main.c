@@ -3,48 +3,10 @@
 #include <vane/compiler/build_options.h>
 #include <vane/compiler/compiler.h>
 
+#include <vane/utils/file_utils.h>
+#include <vane/utils/path.h>
+
 #include <vane/ast/visitors/ast_dot_visitor.h>
-
-static void print_ast_nodes(const Package* package) {
-    assert(package != NULL);
-
-    printf("[%.*s]:\n",
-        (i32)package->path->len, package->path->text
-    );
-
-    if (package->source_files.size > 0) {
-        HashmapIterator it = hashmap_get_it(&package->source_files);
-        while (hashmap_it_next(&it)) {
-            const SourceFile* source_file = it.value;
-
-            if (source_file == NULL) {
-                continue;
-            }
-
-            for (u32 i = 0; i < source_file->ast_nodes.size; ++i) {
-                const ASTNode* ast = vector_at(&source_file->ast_nodes, i);
-
-                ast_print_dot(ast, stdout);
-            }
-        }
-    }
-
-    //if (package->subpackages.size > 0) {
-    //    for (u32 i = 0; i < package->subpackages.size; ++i) {
-    //        const Package* subpackage = vector_at(&package->subpackages, i);
-    //        print_ast_nodes(subpackage);
-    //    }
-    //}
-}
-
-static void print_ast_compiler(const Compiler* compiler) {
-    assert(compiler != NULL);
-
-    HashmapIterator package_it = hashmap_get_it(&compiler->packages);
-    while (hashmap_it_next(&package_it)) {
-        print_ast_nodes(package_it.value);
-    }
-}
 
 int main(int argc, char** argv) {
     if (argc < 2) {
@@ -76,24 +38,31 @@ int main(int argc, char** argv) {
     }
 
     if (!compiler_parse_source_files(&compiler)) {
-        report_collector_print_all(&compiler.rc, build_options.colored_output, build_options.debug);
+        report_collector_print_all(&compiler.rc, build_options.general_options.colored_output, build_options.general_options.debug);
 
         compiler_destroy(&compiler);
         build_options_destroy(&build_options);
 
         return 1;
+    }
+
+    if (build_options.command == BUILD_COMMAND_PARSE_AST) {
+        compiler_print_ast(&compiler);
+
+        compiler_destroy(&compiler);
+        build_options_destroy(&build_options);
+
+        return 0;
     }
 
     if (!compiler_resolve_imports(&compiler)) {
-        report_collector_print_all(&compiler.rc, build_options.colored_output, build_options.debug);
+        report_collector_print_all(&compiler.rc, build_options.general_options.colored_output, build_options.general_options.debug);
 
         compiler_destroy(&compiler);
         build_options_destroy(&build_options);
 
         return 1;
     }
-
-    print_ast_compiler(&compiler);
 
 
     // Process futher

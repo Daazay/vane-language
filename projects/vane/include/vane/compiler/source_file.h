@@ -21,7 +21,7 @@ struct SourceFile {
     const String* path;
     String content;
 
-    Vector ast_nodes;
+    ASTNode* ast;
 
     // ImportEntry
     Vector imports;

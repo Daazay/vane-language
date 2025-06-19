@@ -10,7 +10,7 @@ typedef struct BuildOptions BuildOptions;
 enum BuildCommand {
     BUILD_COMMAND_MISSING = 0,
     BUILD_COMMAND_HELP,
-    BUILD_COMMAND_BUILD,
+    BUILD_COMMAND_PARSE_AST,
 };
 
 struct BuildOptions {
@@ -22,8 +22,19 @@ struct BuildOptions {
     // k: [path, String, &string_destroy]
     Hashmap collections;
 
-    bool debug;
-    bool colored_output;
+    // General options
+    struct {
+        String output_dir;
+        bool debug;
+        bool colored_output;
+    } general_options;
+
+    // Command specific options
+    union {
+        struct {
+            bool save_to_file;
+        } parse_ast;
+    } command_options;
 };
 
 void print_usage(const char* argv0);

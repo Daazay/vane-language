@@ -23,10 +23,8 @@ SourceFile* source_file_create(const String* path, String content, ReportCollect
     source_file->path = path;
     source_file->content = content;
 
-    source_file->ast_nodes = vector_create(
-        SOURCE_FILE_DEFAULT_AST_NODES_SIZE,
-        VECTOR_ITEM_SPECS(ASTNode*, &ast_node_destroy)
-    );
+    source_file->ast = NULL;
+
     source_file->imports = vector_create(
         SOURCE_FILE_DEFAULT_IMPORTS_SIZE,
         VECTOR_ITEM_SPECS(ImportEntry, NULL)
@@ -45,7 +43,7 @@ void source_file_destroy(SourceFile* source_file) {
     }
 
     string_destroy(&source_file->content);
-    vector_destroy(&source_file->ast_nodes);
+    ast_node_destroy(source_file->ast);
     vector_destroy(&source_file->imports);
 
     free(source_file);
@@ -58,6 +56,11 @@ bool source_file_parse(SourceFile* source_file) {
 
     TokenStream ts = token_stream_create(0, source_file->path, &source_file->content, source_file->rc);
     ASTParser ast_parser = ast_parser_create(&ts);
+
+    //
+    source_file->ast = ast_node_create(AST_NODE_SOURCE_FILE, token_stream_peek_next(&ts)->loc);
+    source_file->ast->as.source_file.entities = vector_create(8, VECTOR_ITEM_SPECS(ASTNode*, &ast_node_destroy));
+    //
 
     while (!is_token_stream_end(&ts)) {
         ASTNode* ast = ast_parser_parse_package_entity(&ast_parser);
@@ -78,7 +81,7 @@ bool source_file_parse(SourceFile* source_file) {
             break;
         }
 
-        vector_push_back(&source_file->ast_nodes, &ast);
+        vector_push_back(&source_file->ast->as.source_file.entities, &ast);
     }
 
     ast_parser_destroy(&ast_parser);

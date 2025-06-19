@@ -11,7 +11,41 @@ struct ASTDotVisitorCtx {
 void ast_dot_visitor_print_fn(ASTNode* parent, ASTNode* node, void* data) {
     ASTDotVisitorCtx* ctx = data;
 
-    fprintf(ctx->out, "  n%lld [label=\"%s\"];\n", (u64)node, get_ast_node_kind_name(node->kind));
+    fprintf(ctx->out, "  n%lld [label=\"", (u64)node);
+
+
+    switch (node->kind) {
+    case AST_NODE_IDENTIFIER:
+        fprintf(ctx->out, "%.*s", (i32)node->as.id.value.len, node->as.id.value.text);
+        break;
+    case AST_NODE_EXPR_LITERAL:
+        if (node->as.expr_literal.kind == TOKEN_LITERAL_STRING) {
+            fprintf(ctx->out, "\\\"%.*s\\\"", (i32)node->as.expr_literal.value.len, node->as.expr_literal.value.text);
+        }
+        else if (node->as.expr_literal.kind == TOKEN_LITERAL_CHAR) {
+            fprintf(ctx->out, "\\\'%.*s\\\'", (i32)node->as.expr_literal.value.len, node->as.expr_literal.value.text);
+        }
+        else {
+            fprintf(ctx->out, "%.*s", (i32)node->as.expr_literal.value.len, node->as.expr_literal.value.text);
+        }
+        break;
+    case AST_NODE_EXPR_BINARY:
+        fprintf(ctx->out, "%s", get_token_kind_value(node->as.expr_binary.op));
+        break;
+    case AST_NODE_EXPR_PREFIX_UNARY:
+        fprintf(ctx->out, "%s", get_token_kind_value(node->as.expr_prefix_unary.op));
+        break;
+    case AST_NODE_EXPR_POSTFIX_UNARY:
+        fprintf(ctx->out, "%s", get_token_kind_value(node->as.expr_postfix_unary.op));
+        break;
+    case AST_NODE_EXPR_PLACE:
+        fprintf(ctx->out, "%.*s", (i32)node->as.expr_place.value.len, node->as.expr_place.value.text);
+        break;
+    default:
+        fprintf(ctx->out, "%s", get_ast_node_kind_name(node->kind));
+        break;
+    }
+    fprintf(ctx->out, "\"];\n");
 
     if (parent != NULL) {
         fprintf(ctx->out, "  n%lld -> n%lld;\n", (u64)parent, (u64)node);

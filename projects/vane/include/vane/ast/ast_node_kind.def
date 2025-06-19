@@ -46,6 +46,16 @@ AST_NODE_MISC(IDENTIFIER, "identifier", struct {
     /* VISIT */
 )
 
+AST_NODE_MISC(SOURCE_FILE, "source_file", struct {
+    Vector entities;
+} source_file;,
+    vector_destroy(&node->as.source_file.entities);,
+
+    for (u32 i = 0; i < node->as.source_file.entities.size; ++i) {
+        AST_NODE_VISIT_CHILD_FN(vector_at(&node->as.source_file.entities, i));
+    }
+)
+
 AST_NODE_MISC(IMPORT_DECL, "import:decl", struct {
     ASTNode* path;
     ASTNode* alias;

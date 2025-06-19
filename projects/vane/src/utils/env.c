@@ -29,7 +29,7 @@ String get_env_variable(const char* name) {
 
     return string_create(text, (u64)ret);
 #else
-    const char* env = getenv(name);
+    char* env = getenv(name);
     if (env == NULL) {
         return STRING_EMPTY;
     }

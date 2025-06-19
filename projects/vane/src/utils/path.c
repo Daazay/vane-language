@@ -323,6 +323,27 @@ String path_join_str(u32 count, const String* paths[]) {
     return result;
 }
 
+String path_build(const String* dir, const String* name, const String* ext) {
+    StringBuilder sb = string_builder_create(64);
+
+    if (dir != NULL) {
+        string_builder_append_str(&sb, dir);
+    }
+    if (name != NULL) {
+        if (dir != NULL) {
+            string_builder_append_c(&sb, PATH_SEP);
+        }
+        string_builder_append_str(&sb, name);
+    }
+    if (ext != NULL) {
+        string_builder_append_str(&sb, ext);
+    }
+
+    String result = string_builder_get_str(&sb);
+    string_builder_destroy(&sb);
+    return result;
+}
+
 bool is_path_absolute(const String* path) {
     assert(path != NULL);
 
