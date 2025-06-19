@@ -10,14 +10,6 @@ const char* get_ast_node_kind_name(ASTNodeKind kind) {
     }
 }
 
-bool is_ast_node_kind_a_group(ASTNodeKind kind) {
-    switch (kind) {
-#define AST_NODE_GROUP(KIND, ...) case AST_NODE_GROUP_##KIND: return true;
-#include "vane/ast/ast_node_kind.def"
-    default: return false;
-    }
-}
-
 bool is_ast_node_kind_a_misc(ASTNodeKind kind) {
     switch (kind) {
 #define AST_NODE_MISC(KIND, ...) case AST_NODE_##KIND: return true;

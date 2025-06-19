@@ -4,6 +4,7 @@
 #include "vane/utils/vector.h"
 #include "vane/utils/file_utils.h"
 
+#include "vane/scanner/token_kind.h"
 #include "vane/scanner/scanner.h"
 
 #include "vane/diagnostic/report_collector.h"
@@ -19,11 +20,13 @@ struct TokenStream {
     bool done;
 };
 
-TokenStream token_stream_create(u32 init_tokens_size, const FileContent* fc, ReportCollector* rc);
+TokenStream token_stream_create(u32 init_tokens_size, const String* path, const String* content, ReportCollector* rc);
 
 void token_stream_destroy(TokenStream* ts);
 
-bool token_stream_is_end(const TokenStream* ts);
+bool is_token_stream_end(const TokenStream* ts);
+
+bool is_token_stream_new_line(const TokenStream* ts);
 
 void token_stream_move_forward(TokenStream* ts);
 

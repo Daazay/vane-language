@@ -3,8 +3,11 @@
 #include "vane/utils/string_builder.h"
 
 #define TOKEN_STREAM_BEGIN_IDX -1
+#define TOKEN_STREAM_WINDOW_SIZE 2
 
 static inline  void token_stream_parse_next(TokenStream* ts) {
+    assert(ts != NULL);
+
     if (!ts->done) {
         Token token = scanner_scan_next(&ts->scanner);
         vector_push_back(&ts->tokens, &token);
@@ -15,18 +18,26 @@ static inline  void token_stream_parse_next(TokenStream* ts) {
     }
 }
 
-TokenStream token_stream_create(u32 init_tokens_size, const FileContent* fc, ReportCollector* rc) {
-    assert(fc != NULL && rc != NULL);
+static inline void token_stream_parse_window(TokenStream* ts, u32 window_size) {
+    assert(ts != NULL);
+
+    while (!ts->done && ts->idx + window_size >= ts->tokens.size) {
+        token_stream_parse_next(ts);
+    }
+}
+
+TokenStream token_stream_create(u32 init_tokens_size, const String* path, const String* content, ReportCollector* rc) {
+    assert(path != NULL && content != NULL && rc != NULL);
 
     u32 cap = (init_tokens_size > 0)
         ? init_tokens_size
         : TOKEN_STREAM_DEFAULT_SIZE;
 
     return (TokenStream) {
-        .scanner = scanner_create(fc, rc),
-        .tokens  = vector_create(cap, VECTOR_ITEM_SPECS(Token, &token_destroy)),
-        .idx     = TOKEN_STREAM_BEGIN_IDX,
-        .done    = false,
+        .scanner = scanner_create(path, content, rc),
+        .tokens = vector_create(cap, VECTOR_ITEM_SPECS(Token, &token_destroy)),
+        .idx = TOKEN_STREAM_BEGIN_IDX,
+        .done = false,
     };
 }
 
@@ -39,22 +50,29 @@ void token_stream_destroy(TokenStream* ts) {
     scanner_destroy(&ts->scanner);
 }
 
-bool token_stream_is_end(const TokenStream* ts) {
+bool is_token_stream_end(const TokenStream* ts) {
     assert(ts != NULL);
 
-    if (ts->done && (ts->idx + 2 == (i32)ts->tokens.size)) {
+    if (ts->done && (ts->idx + TOKEN_STREAM_WINDOW_SIZE >= (i32)ts->tokens.size)) {
         return true;
     }
     return false;
 }
 
+bool is_token_stream_new_line(const TokenStream* ts) {
+    assert(ts != NULL);
+
+    return ts->scanner.first_in_line;
+}
+
 void token_stream_move_forward(TokenStream* ts) {
     assert(ts != NULL);
 
-    if (ts->idx + 1 == (i32)ts->tokens.size) {
-        assert(!ts->done && "the end of token stream reached");
-        token_stream_parse_next(ts);
+    if (ts->idx + TOKEN_STREAM_WINDOW_SIZE + 1 >= (i32)ts->tokens.size) {
+        token_stream_parse_window(ts, TOKEN_STREAM_WINDOW_SIZE + 1);
     }
+
+    assert((ts->idx < (i32)ts->tokens.size) && "the end of token stream reached");
     ts->idx++;
 }
 
@@ -68,8 +86,8 @@ void token_stream_move_back(TokenStream* ts) {
 const Token* token_stream_get_curr(TokenStream* ts) {
     assert(ts != NULL);
 
-    if (!ts->done && (ts->idx + 1 == (i32)ts->tokens.size)) {
-        token_stream_parse_next(ts);
+    if (ts->idx + TOKEN_STREAM_WINDOW_SIZE >= (i32)ts->tokens.size) {
+        token_stream_parse_window(ts, TOKEN_STREAM_WINDOW_SIZE);
     }
 
     if (ts->idx < 0) {
@@ -82,12 +100,14 @@ const Token* token_stream_get_curr(TokenStream* ts) {
 const Token* token_stream_peek_next(TokenStream* ts) {
     assert(ts != NULL);
 
-    if (ts->idx + 1 == (i32)ts->tokens.size) {
-        if (ts->done) {
-            return NULL;
-        }
-        token_stream_parse_next(ts);
+    if (ts->idx + TOKEN_STREAM_WINDOW_SIZE + 1 >= (i32)ts->tokens.size) {
+        token_stream_parse_window(ts, TOKEN_STREAM_WINDOW_SIZE + 1);
     }
+
+    if (ts->idx + 1 == (i32)ts->tokens.size && ts->done) {
+        return NULL;
+    }
+
     return vector_at(&ts->tokens, ts->idx + 1);
 }
 
@@ -108,11 +128,7 @@ const Token* token_stream_expect(TokenStream* ts, TokenKind expected) {
         return token;
     }
 
-    String msg = string_from_fmt("Expected `%s`, but got `%s`",
-        get_token_kind_value(expected),
-        get_token_kind_value(token->kind)
-    );
-    report_collector_append_report_trace(ts->scanner.rc, msg, token->loc);
+    RC_TRACE(ts->scanner.rc, token->loc, "Expected any `%s`, but got `%s`", get_token_kind_value(expected), get_token_kind_value(token->kind));
 
     return token;
 }
@@ -127,22 +143,18 @@ const Token* token_stream_expect_any_impl(TokenStream* ts, const TokenKind expec
         }
     }
 
-    StringBuilder sb = sb_create(32);
+    StringBuilder sb = string_builder_create(32);
 
     for (u32 i = 0; i < expected_count; ++i) {
-        sb_append_format(&sb, "`%s`", get_token_kind_value(expected[i]));
+        string_builder_append_format(&sb, "`%s`", get_token_kind_value(expected[i]));
         if (i + 1 < expected_count) {
-            sb_append_cstr(&sb, ", ");
+            string_builder_append_cstr(&sb, ", ");
         }
     }
 
-    String msg = string_from_fmt("Expected any [%.*s], but got `%s`",
-        (i32)sb.len, sb.buf,
-        get_token_kind_value(token->kind)
-    );
-    report_collector_append_report_trace(ts->scanner.rc, msg, token->loc);
+    RC_TRACE(ts->scanner.rc, token->loc, "Expected any [%.*s], but got `%s`", (i32)sb.len, sb.buf, get_token_kind_value(token->kind));
 
-    sb_destroy(&sb);
+    string_builder_destroy(&sb);
 
     return token;
 }
@@ -158,11 +170,7 @@ const Token* token_stream_advance_if(TokenStream* ts, TokenKind expected) {
         return token_stream_get_curr(ts);
     }
 
-    String msg = string_from_fmt("Expected `%s`, but got `%s`",
-        get_token_kind_value(expected),
-        get_token_kind_value(token->kind)
-    );
-    report_collector_append_report_trace(ts->scanner.rc, msg, token->loc);
+    RC_TRACE(ts->scanner.rc, token->loc, "Expected any `%s`, but got `%s`", get_token_kind_value(expected), get_token_kind_value(token->kind));
 
     return token;
 }
@@ -180,22 +188,18 @@ const Token* token_stream_advance_if_any_impl(TokenStream* ts, const TokenKind e
         }
     }
 
-    StringBuilder sb = sb_create(32);
+    StringBuilder sb = string_builder_create(32);
 
     for (u32 i = 0; i < expected_count; ++i) {
-        sb_append_format(&sb, "`%s`", get_token_kind_value(expected[i]));
+        string_builder_append_format(&sb, "`%s`", get_token_kind_value(expected[i]));
         if (i + 1 < expected_count) {
-            sb_append_cstr(&sb, ", ");
+            string_builder_append_cstr(&sb, ", ");
         }
     }
 
-    String msg = string_from_fmt("Expected any [%.*s], but got `%s`",
-        (i32)sb.len, sb.buf,
-        get_token_kind_value(token->kind)
-    );
-    report_collector_append_report_trace(ts->scanner.rc, msg, token->loc);
+    RC_TRACE(ts->scanner.rc, token->loc, "Expected any [%.*s], but got `%s`", (i32)sb.len, sb.buf, get_token_kind_value(token->kind));
 
-    sb_destroy(&sb);
+    string_builder_destroy(&sb);
 
     return token;
 }

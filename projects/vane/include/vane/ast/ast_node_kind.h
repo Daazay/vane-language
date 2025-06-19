@@ -11,8 +11,6 @@ enum ASTNodeKind {
 
 const char* get_ast_node_kind_name(ASTNodeKind kind);
 
-bool is_ast_node_kind_a_group(ASTNodeKind kind);
-
 bool is_ast_node_kind_a_misc(ASTNodeKind kind);
 
 bool is_ast_node_kind_a_type(ASTNodeKind kind);

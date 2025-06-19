@@ -75,7 +75,7 @@ bool is_token_kind_a_postfix_unop(TokenKind kind) {
     switch (kind) {
     case TOKEN_PLUS_PLUS:   return true;
     case TOKEN_MINUS_MINUS: return true;
-    case TOKEN_CARET:       return true; // deref
+    case TOKEN_CARET:       return true;
     default: return false;
     }
 }
@@ -126,26 +126,4 @@ OpAssociativity get_op_associativity(OpPrecedence prec) {
     case OP_PREC_UNARY:      return OP_ASSOC_RIGHT;
     default:                 return OP_ASSOC_LEFT;
     }
-}
-
-bool is_token_kind_a_beginning_of_stmt(TokenKind kind) {
-    return
-        (kind == TOKEN_KEYWORD_BEGIN) ||
-        (kind == TOKEN_KEYWORD_VAR) ||
-        (kind == TOKEN_KEYWORD_IF) ||
-        (kind == TOKEN_KEYWORD_WHILE) ||
-        (kind == TOKEN_KEYWORD_DO) ||
-        (kind == TOKEN_KEYWORD_BREAK) ||
-        (kind == TOKEN_KEYWORD_CONTINUE) ||
-        (kind == TOKEN_KEYWORD_RETURN) ||
-        (kind == TOKEN_SEMICOLON) ||
-        is_token_kind_a_beginning_of_expr(kind);
-}
-
-bool is_token_kind_a_beginning_of_expr(TokenKind kind) {
-    return
-        (kind == TOKEN_IDENTIFIER) ||
-        (kind == TOKEN_L_BRACE) ||
-        is_token_kind_a_literal(kind) ||
-        is_token_kind_a_prefix_unop(kind);
 }

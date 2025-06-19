@@ -1,0 +1,6 @@
+import "std:utils"
+import "std:io"
+
+fun main(args: []string)
+    return 0
+end

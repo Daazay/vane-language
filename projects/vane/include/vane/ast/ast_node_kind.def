@@ -12,9 +12,17 @@
 #define AST_NODE_VISIT_CHILD_FN(...)
 #endif
 
-/*..............................MISC..........................................*/
+/*..............................GROUP.........................................*/
 
 AST_NODE_GROUP(MISC, "misc")
+AST_NODE_GROUP(PACKAGE_ENTITY, "package:entity")
+AST_NODE_GROUP(TYPEREF, "typeref")
+AST_NODE_GROUP(STMT, "stmt")
+AST_NODE_GROUP(EXPR, "expr")
+AST_NODE_GROUP(EXPR_NUD, "expr:nud")
+AST_NODE_GROUP(EXPR_LED, "expr:led")
+
+/*..............................MISC..........................................*/
 
 #ifndef AST_NODE_MISC
 #define AST_NODE_MISC(KIND, NAME, STRUCT, DESTROY, VISIT) AST_NODE(KIND, NAME, STRUCT, DESTROY, VISIT)
@@ -38,12 +46,14 @@ AST_NODE_MISC(IDENTIFIER, "identifier", struct {
     /* VISIT */
 )
 
-AST_NODE_MISC(PACKAGE_DECL, "package:decl", struct {
-    ASTNode* id;
-} package_decl;,
-    ast_node_destroy(node->as.package_decl.id);,
+AST_NODE_MISC(SOURCE_FILE, "source_file", struct {
+    Vector entities;
+} source_file;,
+    vector_destroy(&node->as.source_file.entities);,
 
-    AST_NODE_VISIT_CHILD_FN(node->as.package_decl.id)
+    for (u32 i = 0; i < node->as.source_file.entities.size; ++i) {
+        AST_NODE_VISIT_CHILD_FN(vector_at(&node->as.source_file.entities, i));
+    }
 )
 
 AST_NODE_MISC(IMPORT_DECL, "import:decl", struct {
@@ -57,39 +67,28 @@ AST_NODE_MISC(IMPORT_DECL, "import:decl", struct {
     AST_NODE_VISIT_CHILD_FN(node->as.import_decl.alias);
 )
 
-AST_NODE_MISC(TYPEALIAS_DECL, "typealias:decl", struct {
-    ASTNode* id;
-    ASTNode* type;
-} typealias_decl;,
-    ast_node_destroy(node->as.typealias_decl.id);
-    ast_node_destroy(node->as.typealias_decl.type);,
-
-    AST_NODE_VISIT_CHILD_FN(node->as.typealias_decl.id);
-    AST_NODE_VISIT_CHILD_FN(node->as.typealias_decl.type);
-)
-
 AST_NODE_MISC(FUN_PARAM, "fun:param", struct {
     ASTNode* id;
-    ASTNode* type;
+    ASTNode* typeref;
 } fun_param;,
     ast_node_destroy(node->as.fun_param.id);
-    ast_node_destroy(node->as.fun_param.type);,
+    ast_node_destroy(node->as.fun_param.typeref);,
 
     AST_NODE_VISIT_CHILD_FN(node->as.fun_param.id);
-    AST_NODE_VISIT_CHILD_FN(node->as.fun_param.type);
+    AST_NODE_VISIT_CHILD_FN(node->as.fun_param.typeref);
 )
 
 AST_NODE_MISC(FUN_SIGN, "fun:sign", struct {
     ASTNode* id;
     Vector params;
-    ASTNode* type;
+    ASTNode* typeref;
 } fun_sign;,
     ast_node_destroy(node->as.fun_sign.id);
     vector_destroy(&node->as.fun_sign.params);
-    ast_node_destroy(node->as.fun_sign.type);,
+    ast_node_destroy(node->as.fun_sign.typeref);,
 
     AST_NODE_VISIT_CHILD_FN(node->as.fun_sign.id);
-    AST_NODE_VISIT_CHILD_FN(node->as.fun_sign.type);
+    AST_NODE_VISIT_CHILD_FN(node->as.fun_sign.typeref);
     for (u32 i = 0; i < node->as.fun_sign.params.size; ++i) {
         AST_NODE_VISIT_CHILD_FN(vector_at(&node->as.fun_sign.params, i));
     }
@@ -108,53 +107,85 @@ AST_NODE_MISC(FUN_DECL, "fun:decl", struct {
     }
 )
 
-/*..............................TYPE..........................................*/
+/*..............................TYPEREF..........................................*/
 
-AST_NODE_GROUP(TYPE, "type")
-
-#ifndef AST_NODE_TYPE
-#define AST_NODE_TYPE(KIND, NAME, STRUCT, DESTROY, VISIT) AST_NODE(TYPE_##KIND, "type:"NAME, STRUCT, DESTROY, VISIT)
+#ifndef AST_NODE_TYPEREF
+#define AST_NODE_TYPEREF(KIND, NAME, STRUCT, DESTROY, VISIT) AST_NODE(TYPEREF_##KIND, "typeref:"NAME, STRUCT, DESTROY, VISIT)
 #endif
 
-AST_NODE_TYPE(BUILTIN, "builtin", struct {
+AST_NODE_TYPEREF(BUILTIN, "builtin", struct {
     TokenKind kind;
-} type_builtin;, /* DESTROY */, /* VISIT */)
+} typeref_builtin;, /* DESTROY */, /* VISIT */)
 
-AST_NODE_TYPE(CUSTOM, "custom", struct {
+AST_NODE_TYPEREF(CUSTOM, "custom", struct {
     String value;
-} type_custom;,
-    string_destroy(&node->as.type_custom.value);,
+} typeref_custom;,
+    string_destroy(&node->as.typeref_custom.value);,
     /* VISIT */
 )
 
-AST_NODE_TYPE(PTR, "ptr", struct {
-    ASTNode* type;
-} type_ptr;,
-    ast_node_destroy(node->as.type_ptr.type);,
+AST_NODE_TYPEREF(PTR, "ptr", struct {
+    ASTNode* typeref;
+} typeref_ptr;,
+    ast_node_destroy(node->as.typeref_ptr.typeref);,
 
-    AST_NODE_VISIT_CHILD_FN(node->as.type_ptr.type);
+    AST_NODE_VISIT_CHILD_FN(node->as.typeref_ptr.typeref);
 )
 
-AST_NODE_TYPE(ARR, "arr", struct {
+AST_NODE_TYPEREF(ARR, "arr", struct {
     ASTNode* size_expr;
-    ASTNode* type;
-} type_arr;,
-    ast_node_destroy(node->as.type_arr.size_expr);
-    ast_node_destroy(node->as.type_arr.type);,
+    ASTNode* typeref;
+} typeref_arr;,
+    ast_node_destroy(node->as.typeref_arr.size_expr);
+    ast_node_destroy(node->as.typeref_arr.typeref);,
 
-    AST_NODE_VISIT_CHILD_FN(node->as.type_arr.size_expr);
-    AST_NODE_VISIT_CHILD_FN(node->as.type_arr.type);
+    AST_NODE_VISIT_CHILD_FN(node->as.typeref_arr.size_expr);
+    AST_NODE_VISIT_CHILD_FN(node->as.typeref_arr.typeref);
+)
+
+AST_NODE_TYPEREF(FUN_PARAM, "fun:param", struct {
+    ASTNode* id;
+    ASTNode* typeref;
+} typeref_fun_param;,
+    ast_node_destroy(node->as.typeref_fun_param.id);
+    ast_node_destroy(node->as.typeref_fun_param.typeref);,
+
+    AST_NODE_VISIT_CHILD_FN(node->as.typeref_fun_param.id);
+    AST_NODE_VISIT_CHILD_FN(node->as.typeref_fun_param.typeref);
+)
+
+AST_NODE_TYPEREF(FUN, "fun", struct {
+    Vector params;
+    ASTNode* typeref;
+} typeref_fun;,
+    vector_destroy(&node->as.typeref_fun.params);
+    ast_node_destroy(node->as.typeref_fun.typeref);,
+
+    AST_NODE_VISIT_CHILD_FN(node->as.typeref_fun.typeref);
+
+    for (u32 i = 0; i < node->as.typeref_fun.params.size; ++i) {
+        AST_NODE_VISIT_CHILD_FN(vector_at(&node->as.typeref_fun.params, i));
+    }
 )
 
 /*..............................STMT..........................................*/
-
-AST_NODE_GROUP(STMT, "stmt")
 
 #ifndef AST_NODE_STMT
 #define AST_NODE_STMT(KIND, NAME, STRUCT, DESTROY, VISIT) AST_NODE(STMT_##KIND, "stmt:"NAME, STRUCT, DESTROY, VISIT)
 #endif
 
 AST_NODE_STMT(EMPTY, "empty", /* STRUCT */, /* DESTROY */, /* VISIT */)
+
+AST_NODE_STMT(TYPEALIAS_DECL, "typealias:decl", struct {
+    ASTNode* id;
+    ASTNode* typeref;
+} stmt_typealias_decl;,
+    ast_node_destroy(node->as.stmt_typealias_decl.id);
+    ast_node_destroy(node->as.stmt_typealias_decl.typeref);,
+
+    AST_NODE_VISIT_CHILD_FN(node->as.stmt_typealias_decl.id);
+    AST_NODE_VISIT_CHILD_FN(node->as.stmt_typealias_decl.typeref);
+)
 
 AST_NODE_STMT(BLOCK, "block", struct {
     Vector block;
@@ -168,15 +199,15 @@ AST_NODE_STMT(BLOCK, "block", struct {
 
 AST_NODE_STMT(VAR_ITEM, "var:item", struct {
     ASTNode* id;
-    ASTNode* type;
+    ASTNode* typeref;
     ASTNode* expr;
 } stmt_var_item;,
     ast_node_destroy(node->as.stmt_var_item.id);
-    ast_node_destroy(node->as.stmt_var_item.type);
+    ast_node_destroy(node->as.stmt_var_item.typeref);
     ast_node_destroy(node->as.stmt_var_item.expr);,
 
     AST_NODE_VISIT_CHILD_FN(node->as.stmt_var_item.id);
-    AST_NODE_VISIT_CHILD_FN(node->as.stmt_var_item.type);
+    AST_NODE_VISIT_CHILD_FN(node->as.stmt_var_item.typeref);
     AST_NODE_VISIT_CHILD_FN(node->as.stmt_var_item.expr);
 )
 
@@ -261,12 +292,6 @@ AST_NODE_STMT(EXPR, "expr", struct {
 
 /*..............................EXPR..........................................*/
 
-AST_NODE_GROUP(EXPR, "expr")
-
-AST_NODE_GROUP(EXPR_NUD, "expr:nud")
-
-AST_NODE_GROUP(EXPR_LED, "expr:led")
-
 #ifndef AST_NODE_EXPR
 #define AST_NODE_EXPR(KIND, NAME, STRUCT, DESTROY, VISIT) AST_NODE(EXPR_##KIND, "expr:"NAME, STRUCT, DESTROY, VISIT)
 #endif
@@ -331,15 +356,13 @@ AST_NODE_EXPR(CALL, "call", struct {
 
 AST_NODE_EXPR(INDEX, "index", struct {
     ASTNode* callee;
-    Vector args;
+    ASTNode* index;
 } expr_index;,
     ast_node_destroy(node->as.expr_index.callee);
-    vector_destroy(&node->as.expr_index.args);,
+    ast_node_destroy(node->as.expr_index.index);,
 
     AST_NODE_VISIT_CHILD_FN(node->as.expr_index.callee);
-    for (u32 i = 0; i < node->as.expr_index.args.size; ++i) {
-        AST_NODE_VISIT_CHILD_FN(vector_at(&node->as.expr_index.args, i));
-    }
+    AST_NODE_VISIT_CHILD_FN(node->as.expr_index.index);
 )
 
 AST_NODE_EXPR(MEMBER, "member", struct {
@@ -365,7 +388,7 @@ AST_NODE_EXPR(LITERAL, "literal", struct {
 
 #undef AST_NODE_EXPR
 #undef AST_NODE_STMT
-#undef AST_NODE_TYPE
+#undef AST_NODE_TYPEREF
 #undef AST_NODE_MISC
 #undef AST_NODE_GROUP
 #undef AST_NODE

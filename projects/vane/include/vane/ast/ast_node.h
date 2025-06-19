@@ -3,7 +3,8 @@
 #include "vane/utils/defines.h"
 #include "vane/utils/string.h"
 #include "vane/utils/vector.h"
-#include "vane/utils/source_loc.h"
+
+#include "vane/diagnostic/source_loc.h"
 
 #include "vane/scanner/token_kind.h"
 

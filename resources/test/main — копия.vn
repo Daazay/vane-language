@@ -1,0 +1,13 @@
+// import "abc"
+//
+// type int = i32
+// type ptr = ^int
+// type stack = [8]ptr
+// type slice = []stack
+// type f1 = (): void
+// type f2 = (): a
+// type f3 = (a): a
+// type f4 = (a: a): a
+// type f5 = (a: a, b): a
+// type f6 = (a: a, b: b): a
+// type f7 = []^[]^[]^[](): u32

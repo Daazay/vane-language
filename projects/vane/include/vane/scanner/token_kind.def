@@ -90,10 +90,9 @@ TOKEN_UNOP(TILDE,       "tilde",       "~",  UNARY)
 #define TOKEN_KEYWORD(KIND, NAME) TOKEN(KEYWORD_##KIND, NAME, NAME)
 #endif
 
-TOKEN_KEYWORD(PACKAGE,   "package")
 TOKEN_KEYWORD(IMPORT,    "import")
 TOKEN_KEYWORD(AS,        "as")
-TOKEN_KEYWORD(TYPEALIAS, "typealias")
+TOKEN_KEYWORD(TYPE,      "type")
 TOKEN_KEYWORD(FUN,       "fun")
 TOKEN_KEYWORD(BEGIN,     "begin")
 TOKEN_KEYWORD(END,       "end")

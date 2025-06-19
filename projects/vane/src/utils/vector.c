@@ -6,144 +6,219 @@
 #pragma region UTILITIES
 
 #define VECTOR_DEFAULT_CAPACITY 32
-#define VECTOR_CAPACITY_MULT    1.5
+#define VECTOR_CAPACITY_MULT    1.5f
 
 #pragma endregion
 
 Vector vector_create(u32 init_cap, VectorItemSpecs item_specs) {
-    Vector vector = { 0 };
-    vector_init(&vector, init_cap, item_specs);
-
-    return vector;
+    Vector vec = { 0 };
+    vector_init(&vec, init_cap, item_specs);
+    return vec;
 }
 
-void vector_init(Vector* vector, u32 init_cap, VectorItemSpecs item_specs) {
-    assert(vector != NULL && item_specs.size > 0);
+void vector_init(Vector* vec, u32 init_cap, VectorItemSpecs item_specs) {
+    assert(vec != NULL && item_specs.size > 0);
 
-    u32 cap = init_cap > 0
+    u32 cap = (init_cap > 0)
         ? init_cap
         : VECTOR_DEFAULT_CAPACITY;
 
-    byte* raw = malloc((u64)cap * item_specs.size);
-    assert(raw != NULL);
+    // DO NOT REMOVE
+    if (cap == 1) {
+        cap = 2;
+    }
 
-    *vector = (Vector) {
-        .raw = raw,
-        .cap = cap,
-        .size = 0,
-        .item_specs = item_specs,
-    };
+    vec->raw = malloc((u64)cap * item_specs.size);
+    assert(vec->raw != NULL);
+
+    vec->cap = cap;
+    vec->size = 0;
+    vec->item_specs = item_specs;
 }
 
-void vector_destroy(Vector* vector) {
-    if (vector == NULL || vector->raw == NULL) {
+void vector_destroy(Vector* vec) {
+    if (vec == NULL || vec->raw == NULL) {
         return;
     }
 
-    if (vector->item_specs.destroy_fn != NULL) {
-        for (u32 i = 0; i < vector->size; ++i) {
-            void* item = vector_at(vector, i);
-            vector->item_specs.destroy_fn(item);
-        }
-    }
+    vector_clear(vec);
 
-    free(vector->raw);
+    free(vec->raw);
 
-    vector->raw = NULL;
-    vector->size = 0;
+    vec->raw = NULL;
+    vec->size = 0;
 }
 
-void vector_resize(Vector* vector, u32 new_cap) {
-    assert(vector != NULL && vector->raw != NULL && new_cap > 0);
+void vector_clear(Vector* vec) {
+    assert(vec != NULL);
 
-    if (new_cap == vector->cap) {
+    if (vec->item_specs.destroy_fn != NULL) {
+        for (u32 i = 0; i < vec->size; ++i) {
+            void* item = vector_at(vec, i);
+            vec->item_specs.destroy_fn(item);
+        }
+    }
+
+    vec->size = 0;
+}
+
+u32 vector_capacity(const Vector* vec) {
+    assert(vec != NULL);
+    return vec->cap;
+}
+
+u32 vector_size(const Vector* vec) {
+    assert(vec != NULL);
+    return vec->size;
+}
+
+bool is_vector_empty(const Vector* vec) {
+    assert(vec != NULL);
+    return vec->size == 0;
+}
+
+void vector_resize(Vector* vec, u32 new_cap) {
+    assert(vec != NULL && new_cap > 0);
+
+    if (new_cap == vec->cap) {
         return;
     }
-    else if (new_cap < vector->cap && vector->item_specs.destroy_fn != NULL) {
-        for (u32 i = new_cap; i < vector->size; ++i) {
-            void* item = vector_at(vector, i);
-            vector->item_specs.destroy_fn(item);
+    else if (new_cap < vec->cap && vec->item_specs.destroy_fn != NULL) {
+        for (u32 i = 0; i < vec->size; ++i) {
+            void* item = vector_at(vec, i);
+            vec->item_specs.destroy_fn(item);
         }
-        vector->size = new_cap;
+        if (vec->size > new_cap) {
+            vec->size = new_cap;
+        }
     }
-    else if (new_cap > vector->cap) {
-        byte* raw = realloc(vector->raw, (u64)new_cap * vector->item_specs.size);
+    else if (new_cap > vec->cap) {
+        byte* raw = realloc(vec->raw, (u64)new_cap * vec->item_specs.size);
         assert(raw != NULL);
 
-        vector->raw = raw;
+        vec->raw = raw;
     }
-
-    vector->cap = new_cap;
 }
 
-void vector_push_front(Vector* vector, const void* item) {
-    assert(vector != NULL && vector->raw != NULL && item != NULL);
-
-    vector_insert(vector, 0, item, 1);
-}
-
-void vector_push_back(Vector* vector, const void* item) {
-    assert(vector != NULL && vector->raw != NULL && item != NULL);
-
-    vector_insert(vector, vector->size, item, 1);
-}
-
-void vector_insert(Vector* vector, u32 idx, const void* items, u32 count) {
-    assert(vector != NULL && vector->raw != NULL && idx <= vector->size && items != NULL);
+void vector_insert(Vector* vec, u32 idx, const void* items, u32 count) {
+    assert(vec != NULL && idx <= vec->size);
 
     if (count == 0) {
         return;
     }
 
-    if (vector->size + count > vector->cap) {
-        u32 new_cap = vector->cap;
-        while (vector->size + count > new_cap) {
+    assert((items != NULL || vec->item_specs.is_ptr) && "items can be NULL only if item type is ptr");
+
+    u32 needed_size = vec->size + count;
+    if (needed_size > vec->cap) {
+        u32 new_cap = vec->cap;
+        while (needed_size > new_cap) {
             new_cap = (u32)((f32)new_cap * VECTOR_CAPACITY_MULT);
         }
-        vector_resize(vector, new_cap);
+        vector_resize(vec, new_cap);
     }
 
-    byte* ins_p = vector->raw + idx * vector->item_specs.size;
-    if (idx < vector->size && vector->size > 0) {
-        u64 move_size = (u64)(vector->size - idx) * vector->item_specs.size;
-        byte* where = vector->raw + (idx + count) * vector->item_specs.size;
-        memmove(where, ins_p, move_size);
+    byte* insert_pos = vec->raw + idx * vec->item_specs.size;
+
+    if (idx < vec->size) {
+        u64 move_bytes = (u64)(vec->size - idx) * vec->item_specs.size;
+        memmove(insert_pos + (u64)count * vec->item_specs.size, insert_pos, move_bytes);
     }
 
-    memcpy(ins_p, items, (u64)count * vector->item_specs.size);
-    vector->size = vector->size + count;
-}
-
-void vector_remove(Vector* vector, u32 idx) {
-    assert(vector != NULL && vector->raw != NULL && idx < vector->size);
-
-    byte* item = vector->raw + idx * vector->item_specs.size;
-    if (vector->item_specs.destroy_fn != NULL) {
-        vector->item_specs.destroy_fn(COLLECTION_ITEM_CAST(vector->item_specs, item));
+    if (items != NULL) {
+        memcpy(insert_pos, items, (u64)count * vec->item_specs.size);
     }
-    if (vector->size > 1) {
-        const byte* last = vector->raw + (vector->size - 1) * vector->item_specs.size;
-        memcpy(item, last, vector->item_specs.size);
+    else {
+        memset(insert_pos, 0, (u64)count * vec->item_specs.size);
     }
 
-    vector->size--;
+    vec->size += count;
 }
 
-void* vector_at(const Vector* vector, u32 idx) {
-    assert(vector != NULL && vector->raw != NULL && idx < vector->size);
-
-    void* item = vector->raw + (u64)idx * vector->item_specs.size;
-    return COLLECTION_ITEM_CAST(vector->item_specs, item);
+void vector_push_front(Vector* vec, const void* item) {
+    vector_insert(vec, 0, item, 1);
 }
 
-void* vector_at_front(const Vector* vector) {
-    assert(vector != NULL && vector->size > 0);
-
-    return vector_at(vector, 0);
+void vector_push_back(Vector* vec, const void* item) {
+    vector_insert(vec, vec->size, item, 1);
 }
 
-void* vector_at_back(const Vector* vector) {
-    assert(vector != NULL && vector->size > 0);
+void vector_extend(Vector* vec, const void* items, u32 count) {
+    vector_insert(vec, vec->size, items, count);
+}
 
-    return vector_at(vector, vector->size - 1);
+void vector_remove(Vector* vec, u32 idx) {
+    assert(vec != NULL && idx < vec->size);
+
+    byte* item = vec->raw + idx * vec->item_specs.size;
+
+    if (vec->item_specs.destroy_fn != NULL) {
+        vec->item_specs.destroy_fn(ITEM_SPECS_CAST(vec->item_specs, item));
+    }
+
+    if (idx < vec->size - 1) {
+        byte* next_item = item + vec->item_specs.size;
+        u64 bytes_to_move = (u64)(vec->size - idx - 1) * vec->item_specs.size;
+        memmove(item, next_item, bytes_to_move);
+    }
+
+    vec->size--;
+}
+
+void vector_pop_front(Vector* vec) {
+    assert(vec != NULL && vec->size > 0);
+    vector_remove(vec, 0);
+}
+
+void vector_pop_back(Vector* vec) {
+    assert(vec != NULL && vec->size > 0);
+    vector_remove(vec, vec->size - 1);
+}
+
+void* vector_at(const Vector* vec, u32 idx) {
+    assert(vec != NULL && idx < vec->size);
+
+    void* item = vec->raw + (u64)idx * vec->item_specs.size;
+    return ITEM_SPECS_CAST(vec->item_specs, item);
+}
+
+void* vector_at_front(const Vector* vec) {
+    assert(vec != NULL && vec->size > 0);
+    return vector_at(vec, 0);
+}
+
+void* vector_at_back(const Vector* vec) {
+    assert(vec != NULL && vec->size > 0);
+    return vector_at(vec, vec->size - 1);
+}
+
+void vector_set(Vector* vec, u32 idx, const void* item) {
+    assert(vec != NULL && idx < vec->size);
+    assert((item != NULL || vec->item_specs.is_ptr) && "item can be NULL only if item type is ptr");
+
+    void* dst = vec->raw + idx * vec->item_specs.size;
+
+    if (vec->item_specs.destroy_fn != NULL) {
+        vec->item_specs.destroy_fn(ITEM_SPECS_CAST(vec->item_specs, dst));
+    }
+
+    if (item != NULL) {
+        memcpy(dst, item, vec->item_specs.size);
+    }
+    else {
+        memset(dst, 0, vec->item_specs.size);
+    }
+}
+
+i32 vector_index_of(const Vector* vec, const void* item, item_cmp_fn cmp_fn) {
+    assert(vec != NULL && item != NULL && cmp_fn != NULL);
+
+    for (u32 i = 0; i < vec->size; ++i) {
+        void* item2 = vector_at(vec, i);
+        if (!cmp_fn(item2, ITEM_SPECS_CAST(vec->item_specs, item))) {
+            return (i32)i;
+        }
+    }
+
+    return NPOS;
 }

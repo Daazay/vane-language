@@ -1,49 +1,82 @@
 #include <stdio.h>
 
-#include <vane/ast/ast_parser.h>
-//#include <vane/ast/ast_node_utils.h>
-#include <vane/utils/terminal.h>
-#include <vane/ast/visitors/ast_console_printer.h>
+#include <vane/compiler/build_options.h>
+#include <vane/compiler/compiler.h>
 
-int main() {
-    String content = string_from_cstr(""
-        "fun main(args: []string): int\n"
-        "    io.println(\"Hello, world\");\n"
-        "    return 0;\n"
-        "end\n"
-    );
-    FileContent fc = {
-        .content = (byte*)content.text,
-        .size = content.len,
-        .path = NULL,
-    };
+#include <vane/utils/file_utils.h>
+#include <vane/utils/path.h>
 
-    ReportCollector rc = report_collector_create(is_terminal_support_colors());
-    TokenStream ts = token_stream_create(32, &fc, &rc);
-    ASTParser ast_parser = ast_parser_create(&ts, &rc);
+#include <vane/ast/visitors/ast_dot_visitor.h>
 
-    ASTNode* node = ast_parser_parse_fun_decl(&ast_parser);
-    ast_console_printer_print_node(node);
+int main(int argc, char** argv) {
+    if (argc < 2) {
+        print_usage(argv[0]);
+        return 1;
+    }
 
-    //String s = ast_node_to_dot(node);
+    BuildOptions build_options = { 0 };
 
-    //printf("%.*s", (i32)s.len, s.text);
-    //string_destroy(&s);
+    if (!build_options_parse_args(&build_options, argc, argv)) {
+        return 1;
+    }
 
-    report_collector_print(&rc);
+    if (build_options.command == BUILD_COMMAND_HELP) {
+        print_usage(argv[0]);
 
-    ast_node_destroy(node);
-    ast_parser_destroy(&ast_parser);
-    token_stream_destroy(&ts);
-    report_collector_destroy(&rc);
-    string_destroy(&content);
+        build_options_destroy(&build_options);
+        return 0;
+    }
 
+    Compiler compiler = compiler_create(&build_options);
+
+    Package* root_package = compiler_load_package(&compiler, &build_options.root_path);
+    if (root_package == NULL) {
+        report_collector_print_all(&compiler.rc, build_options.general_options.colored_output, build_options.general_options.debug);
+
+        compiler_destroy(&compiler);
+        return 1;
+    }
+
+    if (!compiler_parse_source_files(&compiler)) {
+        report_collector_print_all(&compiler.rc, build_options.general_options.colored_output, build_options.general_options.debug);
+
+        compiler_destroy(&compiler);
+        return 1;
+    }
+
+    if (build_options.command == BUILD_COMMAND_PARSE_AST) {
+        report_collector_print_all(&compiler.rc, build_options.general_options.colored_output, build_options.general_options.debug);
+
+        compiler_print_ast(&compiler);
+
+        compiler_destroy(&compiler);
+        return 0;
+    }
+
+    //if (!compiler_resolve_imports(&compiler)) {
+    //    report_collector_print_all(&compiler.rc, build_options.general_options.colored_output, build_options.general_options.debug);
+
+    //    compiler_destroy(&compiler);
+    //    return 1;
+    //}
+    compiler_resolve_imports(&compiler);
+
+    if (build_options.command == BUILD_COMMAND_SHOW_IMPORTS) {
+        report_collector_print_all(&compiler.rc, build_options.general_options.colored_output, build_options.general_options.debug);
+
+        compiler_show_imports(&compiler);
+
+        compiler_destroy(&compiler);
+        return 0;
+    }
+
+
+    // Process futher
+    // Analyze
+    // Sym table
+    // etc
+
+
+    compiler_destroy(&compiler);
     return 0;
 }
-/*
-((10 + 14) - a++ * -5 + 24)(16 - a(c * 11)) % cast(a, 2)
-fun main(args: []string): int
-    io.println("Hello, world");
-    return 0;
-end
-*/
