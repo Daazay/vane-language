@@ -16,9 +16,10 @@ const char* get_diagnostic_severity_name(DiagnosticSeverity severity) {
 const char* get_diagnostic_kind_name(DiagnosticKind kind) {
     switch (kind) {
     case DIAG_KIND_NONE:     return "";
+    case DIAG_KIND_INTERNAL: return "internal";
     case DIAG_KIND_LEXICAL:  return "lexical";
     case DIAG_KIND_SYNTAX:   return "syntax";
-    case DIAG_KIND_INTERNAL: return "internal";
+    case DIAG_KIND_SEMANTIC: return "semantic";
     default:
         unreachable();
         return NULL;

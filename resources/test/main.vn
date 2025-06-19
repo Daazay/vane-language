@@ -1,2 +1,19 @@
-import "a"
+import "a" as a
+import "../test/a" as a
 import "std:utils"
+
+type int = i32
+
+fun fib(num: int): int
+    var a, b
+
+    (a + b) * ^ 2 b
+
+    if num == 0 then
+        return 0
+    else if num == 1 then
+        return 1
+    end
+    var fib = fib(num - 1) + fib(n - 2)
+    return fib
+end

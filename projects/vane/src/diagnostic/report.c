@@ -181,8 +181,6 @@ static void report_traces_print(const Report* report, bool colored) {
             report_trace_print(t, i == 0);
         }
     }
-
-    printf("\n");
 }
 
 static void report_note_print(const Report* report, bool colored) {
@@ -194,7 +192,7 @@ static void report_note_print(const Report* report, bool colored) {
         return;
     }
 
-    printf("note: %.*s\n\n", (i32)report->note.len, report->note.text);
+    printf("note: %.*s\n", (i32)report->note.len, report->note.text);
 }
 
 void report_print(const Report* report, bool colored) {
@@ -205,4 +203,6 @@ void report_print(const Report* report, bool colored) {
     report_traces_print(report, colored);
 
     report_note_print(report, colored);
+
+    printf("\n");
 }

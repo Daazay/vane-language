@@ -37,6 +37,7 @@ static inline void scanner_advance_char(Scanner* scanner) {
 }
 
 #define RET_TOKEN(KIND, VALUE) \
+scanner->first_in_line = false; \
 return (Token) { \
     .kind = KIND, \
     .value = VALUE, \

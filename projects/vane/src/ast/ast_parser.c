@@ -577,6 +577,8 @@ ASTNode* ast_parser_parse_import_decl(ASTParser* ast_parser) {
 
     token = token_stream_peek_next(ast_parser->ts);
     if (token->kind == TOKEN_KEYWORD_AS) {
+        token_stream_move_forward(ast_parser->ts);
+
         alias = ast_parser_parse_identifier(ast_parser);
         loc.range.end = alias->loc.range.end;
 
@@ -1315,13 +1317,25 @@ ASTNode* ast_parser_parse_expr_with_prec(ASTParser* ast_parser, OpPrecedence pre
         return node;
     }
 
+    const Token* token = NULL;
     while (!is_token_stream_end(ast_parser->ts)) {
         if (is_token_stream_new_line(ast_parser->ts)) {
             break;
         }
 
-        OpPrecedence new_prec = get_token_kind_precedence(token_stream_peek_next(ast_parser->ts)->kind);
+        token = token_stream_peek_next(ast_parser->ts);
+        OpPrecedence new_prec = get_token_kind_precedence(token->kind);
         if (new_prec <= prec) {
+            if (is_token_kind_a_beginning_of_expr(token->kind)) {
+                SourceLoc loc = node->loc;
+                loc.range.end = token->loc.range.end;
+
+                ast_node_destroy(node);
+
+                RC_TRACE(ast_parser->rc, loc, "Expected an operator, but got `%s`", get_token_kind_value(token->kind));
+                return ast_node_error_create(AST_NODE_GROUP_EXPR, NULL, loc);
+            }
+
             break;
         }
 

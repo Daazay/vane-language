@@ -1,0 +1,58 @@
+import "std:io" as io
+
+type int   = i32
+type uint  = u32
+type long  = i64
+type ulong = i64
+
+fun count_digits(num: int): int
+    var count = 0
+    while (num != 0) do
+        num /= 10
+        ++count
+    end
+
+    return count
+end
+
+fun power(base: int, exp: int): int
+    var result, i: int = 0
+
+    while i < exp do
+        result *= base
+        ++i
+    end
+
+    return result
+end
+
+fun is_armstrong(num: int): int
+    var orig_num = num,
+        n = count_digits(num),
+        result = 0
+
+    while (num != 0) do
+        var remainder = num % 10
+        result += power(remainder, n)
+        num /= 10
+    end
+
+    return result == orig_num
+end
+
+fun main(args: []string): int
+    var low = 100
+    var high = 500
+
+    io.println("Armstrong numbers between ${low} and ${high} are: ");
+
+    var i = low + 1
+    while i < high do
+        if (is_armstrong(i)) then
+            io.print("${i} ");
+        end
+        ++i
+    end
+
+    return 0
+end

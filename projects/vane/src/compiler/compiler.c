@@ -8,6 +8,8 @@
 
 #include "vane/ast/visitors/ast_dot_visitor.h"
 
+#include "vane/compiler/import_entry.h"
+
 #pragma region UTILITIES
 
 #define COMPILER_DEFAULT_PACKAGES_COUNT 8
@@ -60,37 +62,15 @@ static DirWalkAction package_walk_file_callback(String* path_, void* data) {
 
     struct PackageWalkCtx* ctx = data;
 
+    // A bit dirty, but for now oK
     hashmap_put(&ctx->package->source_files, path_, NULL);
     const String* path = hashmap_key_at(&ctx->package->source_files, path_);
 
     // walk_dir should not destroy this string
     *path_ = STRING_EMPTY;
 
-
-    String content = STRING_EMPTY;
-
-    IOStatus status = file_content_load(path, &content);
-    switch (status) {
-    case IO_OK: break;
-    case IO_ERR_INVALID_PATH:
-        RC_REPORT_INTERNAL_ERROR(&ctx->compiler->rc, "Invalid filepath  - `%.*s`", (i32)path->len, path->text);
-        return DIR_WALK_CONTINUE;
-    case IO_ERR_NOT_FOUND:
-        RC_REPORT_INTERNAL_ERROR(&ctx->compiler->rc, "File not found - `%.*s`", (i32)path->len, path->text);
-        return DIR_WALK_CONTINUE;
-    case IO_ERR_EMPTY_FILE:
-        RC_REPORT_INTERNAL_WARN(&ctx->compiler->rc, "File is empty  - `%.*s`", (i32)path->len, path->text);
-        return DIR_WALK_CONTINUE;
-    case IO_ERR_READ_FAILED:
-        RC_REPORT_INTERNAL_ERROR(&ctx->compiler->rc, "Failed to read file content  - `%.*s`", (i32)path->len, path->text);
-        return DIR_WALK_CONTINUE;
-    default:
-        unreachable();
-        return DIR_WALK_CONTINUE;
-    }
-
-    SourceFile* source_file = source_file_create(path, content, &ctx->compiler->rc);
-    hashmap_put(&ctx->package->source_files, path, &source_file);
+    SourceFile* source_file = source_file_load(path, &ctx->compiler->rc);
+    package_add_source_file(ctx->package, source_file);
 
     return DIR_WALK_CONTINUE;
 }
@@ -173,35 +153,25 @@ Package* compiler_load_package(Compiler* compiler, const String* dirpath) {
     return package;
 }
 
-Package* compiler_load_imported_package(Compiler* compiler, const String* import_path) {
-    assert(compiler != NULL && import_path != NULL);
+Package* compiler_try_load_imported_package(Compiler* compiler, const String* collection_name, const String* package_path) {
+    assert(compiler != NULL && collection_name != NULL && package_path != NULL);
 
-    i64 colon_pos = string_find_c(import_path, ':');
-
-    String path_to_import = STRING_EMPTY;
-
-    if (colon_pos != NPOS && colon_pos > 0) {
-        String collection_name = string_substr(import_path, 0, colon_pos);
-
-        const String* collection_path = compiler_get_collection_path(compiler, &collection_name);
+    String path = STRING_EMPTY;
+    if (!is_string_empty(collection_name)) {
+        const String* collection_path = compiler_get_collection_path(compiler, collection_name);
         if (collection_path == NULL) {
-            RC_REPORT_INTERNAL_ERROR(&compiler->rc, "unknown collection `%.*s`", (i32)collection_name.len, collection_name.text);
-            string_destroy(&collection_name);
+            RC_REPORT_INTERNAL_ERROR(&compiler->rc, "unknown collection `%.*s`", (i32)collection_name->len, collection_name->text);
             return NULL;
         }
 
-        String package_path = string_substr(import_path, colon_pos + 1, import_path->len - colon_pos);
-        path_to_import = path_join_str(2, (const String *[]) { collection_path, &package_path });
-        string_destroy(&package_path);
+        path = path_join_str(2, (const String *[]) { collection_path, package_path });
     }
     else {
-        String package_path = string_substr(import_path, colon_pos + 1, import_path->len - colon_pos);
-        path_to_import = path_join_str(2, (const String *[]) { &compiler->build_options->root_path, &package_path });
-        string_destroy(&package_path);
+        path = path_join_str(2, (const String *[]) { &compiler->build_options->root_path, package_path });
     }
 
-    Package* package = compiler_load_package(compiler, &path_to_import);
-    string_destroy(&path_to_import);
+    Package* package = compiler_load_package(compiler, &path);
+    string_destroy(&path);
 
     return package;
 }
@@ -324,4 +294,25 @@ bool compiler_show_imports(Compiler* compiler) {
     }
 
     return true;
+}
+
+bool compiler_resolve_identifiers(Compiler* compiler) {
+    assert(compiler != NULL);
+
+    bool success = true;
+
+    HashmapIterator package_it = hashmap_get_it(&compiler->packages);
+    while (hashmap_it_next(&package_it)) {
+        Package* package = package_it.value;
+        if (package == NULL) {
+            continue;
+        }
+
+        bool ok = package_resolve_identifiers(package);
+        if (!ok) {
+            success = false;
+        }
+    }
+
+    return success;
 }

@@ -13,6 +13,7 @@ enum BuildCommand {
     BUILD_COMMAND_HELP,
     BUILD_COMMAND_PARSE_AST,
     BUILD_COMMAND_SHOW_IMPORTS,
+    BUILD_COMMAND_BUILD_CFG,
 };
 
 struct BuildOptions {

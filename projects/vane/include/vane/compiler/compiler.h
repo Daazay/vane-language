@@ -29,7 +29,7 @@ const String* compiler_get_collection_path(Compiler* compiler, const String* col
 
 Package* compiler_load_package(Compiler* compiler, const String* dirpath);
 
-Package* compiler_load_imported_package(Compiler* compiler, const String* import_path);
+Package* compiler_try_load_imported_package(Compiler* compiler, const String* collection_name, const String* package_path);
 
 bool compiler_parse_source_files(Compiler* compiler);
 
@@ -38,3 +38,5 @@ bool compiler_resolve_imports(Compiler* compiler);
 bool compiler_print_ast(Compiler* compiler);
 
 bool compiler_show_imports(Compiler* compiler);
+
+bool compiler_resolve_identifiers(Compiler* compiler);
