@@ -181,21 +181,21 @@ bool source_file_resolve_imports(SourceFile* source_file, struct Compiler* compi
     return success;
 }
 
-bool source_file_resolve_identifiers(SourceFile* source_file) {
+bool source_file_resolve_symbols(SourceFile* source_file) {
     assert(source_file != NULL);
 
     if (source_file->scope != NULL) {
         return true;
     }
 
-    source_file->scope = scope_create(string_clone(source_file->path), source_file->package->scope);
+    source_file->scope = scope_create(SCOPE_SOURCE_FILE, source_file->package->scope);
 
     bool success = true;
 
-    if (!scope_resolve_import_identifiers(source_file->scope, &source_file->imports, source_file->rc)) {
+    if (!scope_resolve_import_symbols(source_file->scope, &source_file->imports, source_file->rc)) {
         success = false;
     }
-    if (!scope_resolve_source_file_identifiers(source_file->scope, &source_file->ast->as.source_file.entities, source_file->rc)) {
+    if (!scope_resolve_source_file_symbols(source_file->scope, &source_file->ast->as.source_file.entities, source_file->rc)) {
         success = false;
     }
 

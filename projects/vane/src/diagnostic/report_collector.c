@@ -91,15 +91,11 @@ void report_collector_append_report_from_format(ReportCollector* rc, DiagnosticK
     report_collector_append_report(rc, kind, severity, loc, msg);
 }
 
-void report_collector_print_all(const ReportCollector* rc, bool colored, bool debug) {
+void report_collector_print_all(const ReportCollector* rc, bool colored) {
     assert(rc != NULL);
 
     for (u32 i = 0; i < rc->reports.size; ++i) {
         const Report* report = vector_at(&rc->reports, i);
-
-        if (report->severity == DIAG_SEVERITY_DEBUG && !debug) {
-            continue;
-        }
 
         report_print(report, colored);
     }

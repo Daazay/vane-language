@@ -13,8 +13,9 @@ struct Token {
     TokenKind kind;
     String value;
     SourceLoc loc;
+    bool first_in_line;
 };
 
-Token token_create(TokenKind kind, String value, SourceLoc loc);
+Token token_create(TokenKind kind, String value, SourceLoc loc, bool first_in_line);
 
 void token_destroy(Token* token);

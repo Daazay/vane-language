@@ -42,4 +42,4 @@ bool package_parse_source_files(Package* package);
 
 bool package_resolve_imports(Package* package, struct Compiler* compiler);
 
-bool package_resolve_identifiers(Package* package);
+bool package_resolve_symbols(Package* package);

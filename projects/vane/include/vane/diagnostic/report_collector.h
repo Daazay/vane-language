@@ -33,7 +33,7 @@ void report_collector_append_report(ReportCollector* rc, DiagnosticKind kind, Di
 
 void report_collector_append_report_from_format(ReportCollector* rc, DiagnosticKind kind, DiagnosticSeverity severity, SourceLoc loc, const char* format, ...);
 
-void report_collector_print_all(const ReportCollector* rc, bool colored, bool debug);
+void report_collector_print_all(const ReportCollector* rc, bool colored);
 
 #define RC_TRACE(RC, LOC, FORMAT, ...) report_collector_append_trace_from_format(RC, LOC, FORMAT, ##__VA_ARGS__)
 #define RC_NOTE(RC, FORMAT, ...)       report_collector_append_note_from_format(RC, FORMAT, ##__VA_ARGS__)

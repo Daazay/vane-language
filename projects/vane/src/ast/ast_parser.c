@@ -1274,7 +1274,8 @@ ASTNode* ast_parser_parse_stmt_return(ASTParser* ast_parser) {
 
     ASTNode* expr = NULL;
 
-    if (!is_token_stream_new_line(ast_parser->ts) && token_stream_peek_next(ast_parser->ts)->kind != TOKEN_SEMICOLON) {
+    token = token_stream_peek_next(ast_parser->ts);
+    if (token->first_in_line && token->kind != TOKEN_SEMICOLON) {
         expr = ast_parser_parse_expr(ast_parser);
         loc.range.end = expr->loc.range.end;
 
@@ -1317,13 +1318,12 @@ ASTNode* ast_parser_parse_expr_with_prec(ASTParser* ast_parser, OpPrecedence pre
         return node;
     }
 
-    const Token* token = NULL;
+    const Token* token = token_stream_peek_next(ast_parser->ts);
     while (!is_token_stream_end(ast_parser->ts)) {
-        if (is_token_stream_new_line(ast_parser->ts)) {
+        if (token->first_in_line) {
             break;
         }
 
-        token = token_stream_peek_next(ast_parser->ts);
         OpPrecedence new_prec = get_token_kind_precedence(token->kind);
         if (new_prec <= prec) {
             if (is_token_kind_a_beginning_of_expr(token->kind)) {
@@ -1343,6 +1343,7 @@ ASTNode* ast_parser_parse_expr_with_prec(ASTParser* ast_parser, OpPrecedence pre
         if (node->kind == AST_NODE_ERROR) {
             return node;
         }
+        token = token_stream_peek_next(ast_parser->ts);
     }
 
     return node;

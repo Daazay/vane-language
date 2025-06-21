@@ -9,6 +9,8 @@
 #include "vane/compiler/package.h"
 #include "vane/compiler/build_options.h"
 
+#include "vane/sema/type_system.h"
+
 typedef struct Compiler Compiler;
 
 struct Compiler {
@@ -17,6 +19,8 @@ struct Compiler {
     // k: [dirpath, String, &string_destroy]
     // v: [package, Package*, &package_destroy]
     Hashmap packages;
+
+    TypeSystem type_system;
 
     ReportCollector rc;
 };
@@ -39,4 +43,6 @@ bool compiler_print_ast(Compiler* compiler);
 
 bool compiler_show_imports(Compiler* compiler);
 
-bool compiler_resolve_identifiers(Compiler* compiler);
+bool compiler_resolve_symbols(Compiler* compiler);
+
+bool compiler_resolve_types(Compiler* compiler);

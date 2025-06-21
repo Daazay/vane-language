@@ -108,14 +108,14 @@ bool package_resolve_imports(Package* package, struct Compiler* compiler) {
     return success;
 }
 
-bool package_resolve_identifiers(Package* package) {
+bool package_resolve_symbols(Package* package) {
     assert(package != NULL);
 
     if (package->scope != NULL) {
         return true;
     }
 
-    package->scope = scope_create(string_clone(package->path), NULL);
+    package->scope = scope_create(SCOPE_PACKAGE, NULL);
 
     bool success = true;
 
@@ -126,7 +126,7 @@ bool package_resolve_identifiers(Package* package) {
             continue;
         }
 
-        bool ok = source_file_resolve_identifiers(source_file);
+        bool ok = source_file_resolve_symbols(source_file);
         if (!ok) {
             success = false;
         }

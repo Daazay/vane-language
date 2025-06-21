@@ -30,6 +30,8 @@ Compiler compiler_create(BuildOptions* build_options) {
         HASHMAP_VALUE_SPECS(Package*, &package_destroy)
     );
 
+    compiler.type_system = (TypeSystem){ 0 };
+
     compiler.rc = report_collector_create();
 
     return compiler;
@@ -41,6 +43,8 @@ void compiler_destroy(Compiler* compiler) {
     }
 
     hashmap_destroy(&compiler->packages);
+
+    type_system_destroy(&compiler->type_system);
 
     report_collector_destroy(&compiler->rc);
 
@@ -296,7 +300,7 @@ bool compiler_show_imports(Compiler* compiler) {
     return true;
 }
 
-bool compiler_resolve_identifiers(Compiler* compiler) {
+bool compiler_resolve_symbols(Compiler* compiler) {
     assert(compiler != NULL);
 
     bool success = true;
@@ -308,7 +312,32 @@ bool compiler_resolve_identifiers(Compiler* compiler) {
             continue;
         }
 
-        bool ok = package_resolve_identifiers(package);
+        bool ok = package_resolve_symbols(package);
+        if (!ok) {
+            success = false;
+        }
+    }
+
+    return success;
+}
+
+bool compiler_resolve_types(Compiler* compiler) {
+    assert(compiler != NULL);
+
+    bool success = true;
+
+    HashmapIterator package_it = hashmap_get_it(&compiler->packages);
+    while (hashmap_it_next(&package_it)) {
+        Package* package = package_it.value;
+        if (package == NULL) {
+            continue;
+        }
+
+        if (package->scope == NULL) {
+            continue;
+        }
+
+        bool ok = scope_resolve_types(package->scope, &compiler->type_system, &compiler->rc);
         if (!ok) {
             success = false;
         }

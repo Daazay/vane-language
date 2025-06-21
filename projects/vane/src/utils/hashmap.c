@@ -7,10 +7,12 @@
 
 #pragma region UTILITIES
 
-#define HASHMAP_INIT_BUCKET_SIZE 4
-#define HASHMAP_DEFAULT_CAPACITY 8
-#define HASHMAP_CAPACITY_MULT    2
-#define HASHMAP_LOAD_FACTOR      2
+// >=
+#define HASHMAP_MAX_ENTRY_SIZE_NOT_ALLOCATED 64
+#define HASHMAP_INIT_BUCKET_SIZE             4
+#define HASHMAP_DEFAULT_CAPACITY             8
+#define HASHMAP_CAPACITY_MULT                2
+#define HASHMAP_LOAD_FACTOR                  2
 
 static inline u64 get_entry_size(const Hashmap* map) {
     assert(map != NULL);
@@ -32,9 +34,17 @@ static inline void* get_entry_value(const Hashmap* map, void* entry) {
     return (byte*)entry + sizeof(u32) + map->key_specs.common.size;
 }
 
-static inline void hashmap_bucket_init(HashmapBucket* bucket) {
+static inline void hashmap_bucket_init(const Hashmap* map, HashmapBucket* bucket) {
     assert(bucket != NULL);
-    *bucket = vector_create(HASHMAP_DEFAULT_CAPACITY, VECTOR_ITEM_SPECS(void*, NULL));
+
+    const u64 entry_size = get_entry_size(map);
+    const bool is_ptr = entry_size >= HASHMAP_MAX_ENTRY_SIZE_NOT_ALLOCATED;
+
+    *bucket = vector_create(HASHMAP_DEFAULT_CAPACITY, (ItemSpecs) {
+        .destroy_fn = NULL, // deallocation anyway done manually
+        .is_ptr = is_ptr,
+        .size = (u32)(is_ptr ? sizeof(void*) : entry_size),
+    });
 }
 
 static void hashmap_entry_destroy(const Hashmap* map, void* entry) {
@@ -49,7 +59,10 @@ static void hashmap_entry_destroy(const Hashmap* map, void* entry) {
         map->value_specs.destroy_fn(ITEM_SPECS_CAST(map->value_specs, value));
     }
 
-    free(entry);
+    const u64 entry_size = get_entry_size(map);
+    if (entry_size >= HASHMAP_MAX_ENTRY_SIZE_NOT_ALLOCATED) {
+        free(entry);
+    }
 }
 
 static void* hashmap_get_entry(const Hashmap* map, const void* _key1) {
@@ -117,25 +130,11 @@ void hashmap_destroy(Hashmap* map) {
         return;
     }
 
-    for (u32 i = 0; i < map->cap; ++i) {
-        HashmapBucket* bucket = &map->buckets[i];
-
-        if (bucket->raw == NULL) {
-            continue;
-        }
-
-        for (u32 j = 0; j < bucket->size; ++j) {
-            void* entry = vector_at(bucket, j);
-            hashmap_entry_destroy(map, entry);
-        }
-
-        vector_destroy(bucket);
-    }
+    hashmap_clean(map);
 
     free(map->buckets);
 
     map->buckets = NULL;
-    map->size = 0;
     map->cap = 0;
 }
 
@@ -153,6 +152,8 @@ void hashmap_clean(Hashmap* map) {
             void* entry = vector_at(bucket, j);
             hashmap_entry_destroy(map, entry);
         }
+
+        vector_destroy(bucket);
     }
 
     map->size = 0;
@@ -202,10 +203,15 @@ void hashmap_resize(Hashmap* map, u32 new_cap) {
             HashmapBucket* new_bucket = &new_buckets[new_idx];
 
             if (new_bucket->raw == NULL) {
-                hashmap_bucket_init(new_bucket);
+                hashmap_bucket_init(map, new_bucket);
             }
 
-            vector_push_back(new_bucket, &entry);
+            if (get_entry_size(map) >= HASHMAP_MAX_ENTRY_SIZE_NOT_ALLOCATED) {
+                vector_push_back(new_bucket, &entry);
+            }
+            else {
+                vector_push_back(new_bucket, entry);
+            }
         }
         vector_destroy(bucket);
     }
@@ -248,25 +254,42 @@ void hashmap_put(Hashmap* map, const void* key1_, const void* value) {
     HashmapBucket* bucket = &map->buckets[idx];
 
     if (bucket->raw == NULL) {
-        hashmap_bucket_init(bucket);
+        hashmap_bucket_init(map, bucket);
     }
 
-    const u64 size = get_entry_size(map);
+    const u64 entry_size = get_entry_size(map);
+    if (entry_size >= HASHMAP_MAX_ENTRY_SIZE_NOT_ALLOCATED) {
+        entry = malloc(entry_size);
+        assert(entry != NULL);
 
-    entry = malloc(size);
-    assert(entry != NULL);
+        (*(u32*)entry) = computed_hash;
+        memcpy(get_entry_key(entry), key1_, map->key_specs.common.size);
 
-    (*(u32*)entry) = computed_hash;
-    memcpy(get_entry_key(entry), key1_, map->key_specs.common.size);
+        if (value != NULL) {
+            memcpy(get_entry_value(map, entry), value, map->value_specs.size);
+        }
+        else {
+            memset(get_entry_value(map, entry), 0, map->value_specs.size);
+        }
 
-    if (value != NULL) {
-        memcpy(get_entry_value(map, entry), value, map->value_specs.size);
+        vector_push_back(bucket, &entry);
     }
     else {
-        memset(get_entry_value(map, entry), 0, map->value_specs.size);
+        u8 buf[HASHMAP_MAX_ENTRY_SIZE_NOT_ALLOCATED] = { 0 };
+
+        (*(u32*)buf) = computed_hash;
+        memcpy(get_entry_key(buf), key1_, map->key_specs.common.size);
+
+        if (value != NULL) {
+            memcpy(get_entry_value(map, buf), value, map->value_specs.size);
+        }
+        else {
+            memset(get_entry_value(map, buf), 0, map->value_specs.size);
+        }
+
+        vector_push_back(bucket, buf);
     }
 
-    vector_push_back(bucket, &entry);
     map->size++;
 }
 

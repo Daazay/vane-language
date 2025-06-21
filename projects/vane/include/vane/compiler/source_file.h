@@ -36,4 +36,4 @@ bool source_file_parse(SourceFile* source_file);
 
 bool source_file_resolve_imports(SourceFile* source_file, struct Compiler* compiler);
 
-bool source_file_resolve_identifiers(SourceFile* source_file);
+bool source_file_resolve_symbols(SourceFile* source_file);

@@ -2,8 +2,6 @@
 
 #include <vane/utils/hashmap.h>
 
-#include "test_object.h"
-
 typedef struct HashmapBasicPair HashmapBasicPair;
 
 struct HashmapBasicPair {

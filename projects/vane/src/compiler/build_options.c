@@ -17,8 +17,10 @@ void print_usage(const char* argv0) {
     PRINT_LINE("");
     PRINT_LINE("General options:");
     PRINT_LINE("  --output_dir <PATH>       Set output directory path.");
-    PRINT_LINE("  --debug                   Print debug reports.");
     PRINT_LINE("  --collection <NAME:PATH>  Adds collection path.");
+    PRINT_LINE("  --target <ARCH>           Specify target architecture (default: x86_64)");
+    PRINT_LINE("                            Supported targets:");
+    PRINT_LINE("                              x86_64");
     PRINT_LINE("");
     PRINT_LINE("Commands:");
     PRINT_LINE("  parse_ast <PATH>          Parse project to abstract syntax tree.");
@@ -27,7 +29,7 @@ void print_usage(const char* argv0) {
     PRINT_LINE("  help                      Prints this help.");
     PRINT_LINE("");
     PRINT_LINE("Command specific options:");
-    PRINT_LINE("  parse_ast:");
+    PRINT_LINE("  parse_ast");
     PRINT_LINE("    --save                  Save parsed ast to file.");
 }
 
@@ -83,7 +85,7 @@ static bool parse_option(ArgParser* parser) {
         else if (match_arg(op, "collection")) {
             if (has_next_arg(parser) && !is_next_option(parser)) {
                 const char* arg_ = advance_arg(parser);
-                String arg = string_create(arg_, strlen(arg_));
+                String arg = string_create((char*)arg_, strlen(arg_));
 
                 i64 colon_pos = string_find_c(&arg, ':');
                 if ((colon_pos == NPOS) || (colon_pos == 0) || ((u64)colon_pos == arg.len)) {
@@ -101,9 +103,24 @@ static bool parse_option(ArgParser* parser) {
             PRINT_ERROR_LINE("the argument for 'collection' option was not provided.");
             return false;
         }
-        else if (match_arg(op, "debug")) {
-            parser->options->general_options.debug = true;
-            return true;
+        else if (match_arg(op, "target")) {
+            if (has_next_arg(parser) && !is_next_option(parser)) {
+                const char* arg_ = advance_arg(parser);
+                String arg = string_create((char*)arg_, strlen(arg_));
+
+                if (string_eq_cstr(&arg, "x86_x64")) {
+                    parser->options->general_options.target_arch = TARGET_ARCH_X86_64;
+                }
+                else {
+                    PRINT_ERROR_LINE("unknown target `%.*s`", (i32)arg.len, arg.text);
+                    return false;
+                }
+
+                return true;
+            }
+
+            PRINT_ERROR_LINE("the argument for 'collection' option was not provided.");
+            return false;
         }
         break;
     case BUILD_COMMAND_HELP:
@@ -143,7 +160,7 @@ static bool parse_command_args(ArgParser* parser) {
 
         const char* arg = advance_arg(parser);
         parser->options->root_path = string_from_cstr(arg);
-    break;
+        break;
     default:
         break;
     }
@@ -186,7 +203,7 @@ bool build_options_init(BuildOptions* options) {
 
     // General options
     options->general_options.output_dir = string_from_cstr("./build");
-    options->general_options.debug = false;
+    options->general_options.target_arch = TARGET_ARCH_X86_64;
     options->general_options.colored_output = is_terminal_support_colors();
 
     // Command Specific Options

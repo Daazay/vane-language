@@ -86,7 +86,7 @@ void ast_print_dot(const ASTNode* node, void* stream) {
         "  ];\n\n"
     );
 
-    ast_visit_with(NULL, node, &v);
+    ast_visit_with(NULL, (ASTNode*)node, &v);
 
     fprintf(stream, "}\n");
 }

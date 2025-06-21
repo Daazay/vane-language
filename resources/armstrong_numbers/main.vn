@@ -1,9 +1,10 @@
 import "std:io" as io
 
-type int   = i32
-type uint  = u32
-type long  = i64
-type ulong = i64
+type int    = i32
+type uint   = u32
+type long   = i64
+type ulong  = i64
+type string = []u8
 
 fun count_digits(num: int): int
     var count = 0

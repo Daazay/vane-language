@@ -10,6 +10,7 @@ ASTNode* ast_node_create(ASTNodeKind kind, SourceLoc loc) {
 
     node->kind = kind;
     node->loc = loc;
+    node->scope = NULL;
 
     return node;
 }

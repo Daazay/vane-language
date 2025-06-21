@@ -20,6 +20,8 @@ struct ASTNode {
 #include "vane/ast/ast_node_kind.def"
     } as;
 
+    struct Scope* scope;
+
     SourceLoc loc;
 };
 

@@ -4,24 +4,14 @@
 #include <vane/utils/collection_common.h>
 
 typedef struct Hashmap Hashmap;
-typedef struct HashmapKeySpecs HashmapKeySpecs;
+typedef struct HashItemSpecs HashmapKeySpecs;
 typedef struct ItemSpecs HashmapValueSpecs;
 typedef struct HashmapIterator HashmapIterator;
 typedef struct Vector HashmapBucket;
 
-#define HASHMAP_KEY_SPECS(KEY_TYPE, HASH_FN, EQ_FN, DESTROY_FN) ((HashmapKeySpecs) { \
-    .common = ITEM_SPECS(KEY_TYPE, DESTROY_FN), \
-    .hash_fn = (item_hash_fn)HASH_FN, \
-    .eq_fn = (item_eq_fn)EQ_FN \
-})
+#define HASHMAP_KEY_SPECS(KEY_TYPE, HASH_FN, EQ_FN, DESTROY_FN) HASH_ITEM_SPECS(KEY_TYPE, HASH_FN, EQ_FN, DESTROY_FN)
 
 #define HASHMAP_VALUE_SPECS(VALUE_TYPE, DESTROY_FN) ITEM_SPECS(VALUE_TYPE, DESTROY_FN)
-
-struct HashmapKeySpecs {
-    ItemSpecs common;
-    item_hash_fn hash_fn;
-    item_eq_fn eq_fn;
-};
 
 struct HashmapIterator {
     const Hashmap* map;

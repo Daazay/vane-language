@@ -59,12 +59,6 @@ bool is_token_stream_end(const TokenStream* ts) {
     return false;
 }
 
-bool is_token_stream_new_line(const TokenStream* ts) {
-    assert(ts != NULL);
-
-    return ts->scanner.first_in_line;
-}
-
 void token_stream_move_forward(TokenStream* ts) {
     assert(ts != NULL);
 

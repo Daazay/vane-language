@@ -8,11 +8,23 @@
 #define SCOPE_DEFAULT_SCOPES_COUNT 4
 #define SCOPE_DEFAULT_SYMBOLS_COUNT 4
 
-Scope* scope_create(String name, Scope* parent) {
+const char* get_scope_kind_name(ScopeKind kind) {
+    switch (kind) {
+    case SCOPE_PACKAGE:     return "package";
+    case SCOPE_SOURCE_FILE: return "source_file";
+    case SCOPE_FUNCTION:    return "function";
+    case SCOPE_BASIC:       return "basic";
+    default:
+        unreachable();
+        return NULL;
+    }
+}
+
+Scope* scope_create(ScopeKind kind, Scope* parent) {
     Scope* scope = malloc(sizeof(Scope));
     assert(scope != NULL);
 
-    scope->name = name;
+    scope->kind = kind;
     scope->parent = parent;
 
     scope->scopes = vector_create(
@@ -39,7 +51,6 @@ void scope_destroy(Scope* scope) {
 
     vector_destroy(&scope->scopes);
     hashmap_destroy(&scope->symbols);
-    string_destroy(&scope->name);
 
     free(scope);
 }
@@ -55,6 +66,21 @@ Symbol* scope_lookup_current(const Scope* scope, const String* name) {
     assert(scope != NULL && name != NULL);
 
     return hashmap_at(&scope->symbols, name);
+}
+
+Symbol* scope_lookup_current_kind(const Scope* scope, const String* name, SymbolKind kind) {
+    assert(scope != NULL && name != NULL);
+
+    HashmapIterator it = hashmap_get_it(&scope->symbols);
+    while (hashmap_it_next(&it)) {
+        Symbol* symbol = it.value;
+
+        if (symbol->kind == kind && string_eq_str(&symbol->name, name)) {
+            return symbol;
+        }
+    }
+
+    return NULL;
 }
 
 Symbol* scope_lookup(const Scope* scope, const String* name) {
@@ -76,7 +102,26 @@ Symbol* scope_lookup(const Scope* scope, const String* name) {
     return symbol;
 }
 
-bool scope_resolve_import_identifiers(Scope* scope, const Vector* import_entries, ReportCollector* rc) {
+Symbol* scope_lookup_kind(const Scope* scope, const String* name, SymbolKind kind) {
+    assert(scope != NULL && name != NULL);
+
+    Symbol* symbol = NULL;
+
+    const Scope* it = scope;
+    while (it != NULL) {
+        symbol = scope_lookup_current_kind(it, name, kind);
+
+        if (symbol != NULL) {
+            break;
+        }
+
+        it = it->parent;
+    }
+
+    return symbol;
+}
+
+bool scope_resolve_import_symbols(Scope* scope, const Vector* import_entries, ReportCollector* rc) {
     assert(scope != NULL && import_entries != NULL && rc != NULL);
 
     bool status = true;
@@ -86,13 +131,9 @@ bool scope_resolve_import_identifiers(Scope* scope, const Vector* import_entries
 
         Symbol* symbol = scope_lookup_current(scope, &entry->name);
         if (symbol == NULL) {
-            symbol = symbol_create(SYMBOL_IMPORT, entry->name,
-                (entry->node->as.import_decl.alias != NULL)
-                ? entry->node->as.import_decl.alias->loc
-                : entry->node->as.import_decl.path->loc
-            );
+            symbol = symbol_create(SYMBOL_IMPORT, entry->name, entry->node);
             entry->name = STRING_EMPTY;
-            symbol->as.import.target = entry->target;
+            symbol->target = entry->target;
             scope_add_symbol(scope, symbol);
             continue;
         }
@@ -103,13 +144,13 @@ bool scope_resolve_import_identifiers(Scope* scope, const Vector* import_entries
         // import "../std/io" as io // If resolved package the same, do as in prevous
         // import "io"              // Same
         // import "io2" as io       // Different package, so error with dupplication error
-        if ((u64)entry->target == (u64)symbol->as.import.target) {
-            RC_NOTE(rc, "Already imported at line %d", symbol->loc.range.begin.line);
+        if ((u64)entry->target == (u64)symbol->target) {
+            RC_NOTE(rc, "Already imported at line %d", symbol->ast->loc.range.begin.line);
             RC_REPORT_SEMANTIC_WARN(rc, entry->node->loc, "Redundant import of package `%.*s`", (i32)symbol->name.len, symbol->name.text);
             continue;
         }
 
-        RC_NOTE(rc, "Previosly import at %d line %d column", symbol->loc.range.begin.line, symbol->loc.range.begin.column);
+        RC_NOTE(rc, "Previosly import at %d line %d column", symbol->ast->loc.range.begin.line, symbol->ast->loc.range.begin.column);
         RC_REPORT_SEMANTIC_ERROR(rc, entry->node->loc, "import `%.*s` is already imported", (i32)symbol->name.len, symbol->name.text);
         status = false;
     }
@@ -117,7 +158,7 @@ bool scope_resolve_import_identifiers(Scope* scope, const Vector* import_entries
     return status;
 }
 
-bool scope_resolve_source_file_identifiers(Scope* scope, const Vector* nodes, ReportCollector* rc) {
+bool scope_resolve_source_file_symbols(Scope* scope, const Vector* nodes, ReportCollector* rc) {
     assert(scope != NULL && nodes != NULL && rc != NULL);
 
     bool status = true;
@@ -125,7 +166,6 @@ bool scope_resolve_source_file_identifiers(Scope* scope, const Vector* nodes, Re
     for (u32 i = 0; i < nodes->size; ++i) {
         const ASTNode* entity = vector_at(nodes, i);
 
-        // We process this
         if (entity->kind == AST_NODE_IMPORT_DECL) {
             continue;
         }
@@ -133,36 +173,33 @@ bool scope_resolve_source_file_identifiers(Scope* scope, const Vector* nodes, Re
         Symbol* symbol = NULL;
 
         switch (entity->kind) {
-        case AST_NODE_IMPORT_DECL:
-            // this must processed in scope_resolve_import_identifiers
-            break;
         case AST_NODE_STMT_TYPEALIAS_DECL:
             symbol = scope_lookup(scope, &entity->as.stmt_typealias_decl.id->as.id.value);
             if (symbol != NULL) {
-                RC_NOTE(rc, "`%.*s` was previously defined at %d line and %d column", symbol->name.len, symbol->name.text, symbol->loc.range.begin.line, symbol->loc.range.begin.column);
+                RC_NOTE(rc, "`%.*s` was previously defined at %d line and %d column", symbol->name.len, symbol->name.text, symbol->ast->loc.range.begin.line, symbol->ast->loc.range.begin.column);
                 RC_REPORT_SEMANTIC_ERROR(rc, entity->as.stmt_typealias_decl.id->loc, "Identifier `%.*s` is already in use", (i32)symbol->name.len, symbol->name.text);
                 status = false;
                 break;
             }
 
-            symbol = symbol_create(SYMBOL_TYPEALIAS, string_clone(&entity->as.stmt_typealias_decl.id->as.id.value), entity->as.stmt_typealias_decl.id->loc);
-            symbol->as.typealias.type = NULL;
+            symbol = symbol_create(SYMBOL_TYPEALIAS, string_clone(&entity->as.stmt_typealias_decl.id->as.id.value), entity);
+            symbol->type = NULL;
             scope_add_symbol(scope->parent, symbol);
             break;
         case AST_NODE_FUN_DECL:
             symbol = scope_lookup(scope, &entity->as.fun_decl.sign->as.fun_sign.id->as.id.value);
             if (symbol != NULL) {
-                RC_NOTE(rc, "`%.*s` was previously defined at %d line and %d column", symbol->name.len, symbol->name.text, symbol->loc.range.begin.line, symbol->loc.range.begin.column);
+                RC_NOTE(rc, "`%.*s` was previously defined at %d line and %d column", symbol->name.len, symbol->name.text, symbol->ast->loc.range.begin.line, symbol->ast->loc.range.begin.column);
                 RC_REPORT_SEMANTIC_ERROR(rc, entity->as.fun_decl.sign->as.fun_sign.id->loc, "Identifier `%.*s` is already in use", (i32)symbol->name.len, symbol->name.text);
                 status = false;
                 break;
             }
 
-            symbol = symbol_create(SYMBOL_FUNCTION, string_clone(&entity->as.fun_decl.sign->as.fun_sign.id->as.id.value), entity->as.fun_decl.sign->as.fun_sign.id->loc);
-            symbol->as.function.type = NULL;
+            symbol = symbol_create(SYMBOL_FUNCTION, string_clone(&entity->as.fun_decl.sign->as.fun_sign.id->as.id.value), entity->as.fun_decl.sign);
+            symbol->type = NULL;
             scope_add_symbol(scope->parent, symbol);
 
-            if (!scope_resolve_function_identifiers(scope, entity, rc)) {
+            if (!scope_resolve_function_symbols(scope, entity, rc)) {
                 status = false;
             }
             break;
@@ -175,13 +212,13 @@ bool scope_resolve_source_file_identifiers(Scope* scope, const Vector* nodes, Re
     return status;
 }
 
-bool scope_resolve_function_identifiers(Scope* scope, const ASTNode* fun_decl, ReportCollector* rc) {
+bool scope_resolve_function_symbols(Scope* scope, const ASTNode* fun_decl, ReportCollector* rc) {
     assert(scope != NULL && fun_decl != NULL && rc != NULL);
     assert(fun_decl->kind == AST_NODE_FUN_DECL);
 
     bool status = true;
 
-    Scope* func_scope = scope_create(string_clone(&fun_decl->as.fun_decl.sign->as.fun_sign.id->as.id.value), scope);
+    Scope* func_scope = scope_create(SCOPE_FUNCTION, scope);
 
     // Add fun parameters
 
@@ -190,25 +227,25 @@ bool scope_resolve_function_identifiers(Scope* scope, const ASTNode* fun_decl, R
 
         Symbol* symbol = scope_lookup_current(func_scope, &param->as.fun_param.id->as.id.value);
         if (symbol != NULL) {
-            RC_NOTE(rc, "`%.*s` was previously defined at %d line and %d column", symbol->name.len, symbol->name.text, symbol->loc.range.begin.line, symbol->loc.range.begin.column);
+            RC_NOTE(rc, "`%.*s` was previously defined at %d line and %d column", symbol->name.len, symbol->name.text, symbol->ast->loc.range.begin.line, symbol->ast->loc.range.begin.column);
             RC_REPORT_SEMANTIC_ERROR(rc, param->as.fun_param.id->loc, "Identifier `%.*s` is already in use", (i32)symbol->name.len, symbol->name.text);
             status = false;
             continue;
         }
 
-        symbol = symbol_create(SYMBOL_PARAMETER, string_clone(&param->as.fun_param.id->as.id.value), param->as.fun_param.id->loc);
-        symbol->as.parameter.type = NULL;
+        symbol = symbol_create(SYMBOL_PARAMETER, string_clone(&param->as.fun_param.id->as.id.value), param);
+        symbol->type = NULL;
         scope_add_symbol(func_scope, symbol);
     }
 
-    if (!scope_resolve_stmt_block_identifiers(func_scope, &fun_decl->as.fun_decl.block, rc)) {
+    if (!scope_resolve_stmt_block_symbols(func_scope, &fun_decl->as.fun_decl.block, rc)) {
         status = false;
     }
 
     return status;
 }
 
-bool scope_resolve_var_decl_identifiers(Scope* scope, const ASTNode* var_decl, ReportCollector* rc) {
+bool scope_resolve_var_decl_symbols(Scope* scope, const ASTNode* var_decl, ReportCollector* rc) {
     assert(scope != NULL && var_decl != NULL && rc != NULL);
     assert(var_decl->kind == AST_NODE_STMT_VAR_DECL);
 
@@ -219,21 +256,21 @@ bool scope_resolve_var_decl_identifiers(Scope* scope, const ASTNode* var_decl, R
 
         Symbol* symbol = scope_lookup_current(scope, &var_item->as.stmt_var_item.id->as.id.value);
         if (symbol != NULL) {
-            RC_NOTE(rc, "`%.*s` was previously defined at %d line and %d column", symbol->name.len, symbol->name.text, symbol->loc.range.begin.line, symbol->loc.range.begin.column);
+            RC_NOTE(rc, "`%.*s` was previously defined at %d line and %d column", symbol->name.len, symbol->name.text, symbol->ast->loc.range.begin.line, symbol->ast->loc.range.begin.column);
             RC_REPORT_SEMANTIC_ERROR(rc, var_item->as.stmt_var_item.id->loc, "Identifier `%.*s` is already in use", (i32)symbol->name.len, symbol->name.text);
             status = false;
             continue;
         }
 
-        symbol = symbol_create(SYMBOL_VARIABLE, string_clone(&var_item->as.stmt_var_item.id->as.id.value), var_item->as.stmt_var_item.id->loc);
-        symbol->as.variable.type = NULL;
+        symbol = symbol_create(SYMBOL_VARIABLE, string_clone(&var_item->as.stmt_var_item.id->as.id.value), var_item);
+        symbol->type = NULL;
         scope_add_symbol(scope, symbol);
     }
 
     return status;
 }
 
-bool scope_resolve_stmt_block_identifiers(Scope* scope, const Vector* nodes, ReportCollector* rc) {
+bool scope_resolve_stmt_block_symbols(Scope* scope, const Vector* nodes, ReportCollector* rc) {
     assert(scope != NULL && nodes != NULL && rc != NULL);
 
     bool status = true;
@@ -247,24 +284,24 @@ bool scope_resolve_stmt_block_identifiers(Scope* scope, const Vector* nodes, Rep
         case AST_NODE_STMT_TYPEALIAS_DECL:
             symbol = scope_lookup_current(scope, &stmt->as.stmt_typealias_decl.id->as.id.value);
             if (symbol != NULL) {
-                RC_NOTE(rc, "`%.*s` was previously defined at %d line and %d column", symbol->name.len, symbol->name.text, symbol->loc.range.begin.line, symbol->loc.range.begin.column);
+                RC_NOTE(rc, "`%.*s` was previously defined at %d line and %d column", symbol->name.len, symbol->name.text, symbol->ast->loc.range.begin.line, symbol->ast->loc.range.begin.column);
                 RC_REPORT_SEMANTIC_ERROR(rc, stmt->as.stmt_typealias_decl.id->loc, "Identifier `%.*s` is already in use", (i32)symbol->name.len, symbol->name.text);
                 status = false;
                 break;
             }
 
-            symbol = symbol_create(SYMBOL_TYPEALIAS, string_clone(&stmt->as.stmt_typealias_decl.id->as.id.value), stmt->as.stmt_typealias_decl.id->loc);
-            symbol->as.typealias.type = NULL;
+            symbol = symbol_create(SYMBOL_TYPEALIAS, string_clone(&stmt->as.stmt_typealias_decl.id->as.id.value), stmt);
+            symbol->type = NULL;
             scope_add_symbol(scope, symbol);
             break;
         case AST_NODE_STMT_BLOCK:
-            Scope* block_scope = scope_create(string_from_format("scope[%d]", i), scope);
-            if (!scope_resolve_stmt_block_identifiers(block_scope, &stmt->as.stmt_block.block, rc)) {
+            Scope* block_scope = scope_create(SCOPE_BASIC, scope);
+            if (!scope_resolve_stmt_block_symbols(block_scope, &stmt->as.stmt_block.block, rc)) {
                 status = false;
             }
             break;
         case AST_NODE_STMT_VAR_DECL:
-            if (!scope_resolve_var_decl_identifiers(scope, stmt, rc)) {
+            if (!scope_resolve_var_decl_symbols(scope, stmt, rc)) {
                 status = false;
             }
             break;
@@ -272,26 +309,55 @@ bool scope_resolve_stmt_block_identifiers(Scope* scope, const Vector* nodes, Rep
             for (u32 j = 0; j < stmt->as.stmt_condition.branches.size; ++j) {
                 const  ASTNode* br = vector_at(&stmt->as.stmt_condition.branches, j);
 
-                Scope* br_scope = scope_create(string_from_format("cond[%d]branch[%d]", i, j), scope);
-                if (!scope_resolve_stmt_block_identifiers(br_scope, &br->as.stmt_branch.block, rc)) {
+                Scope* br_scope = scope_create(SCOPE_BASIC, scope);
+                if (!scope_resolve_stmt_block_symbols(br_scope, &br->as.stmt_branch.block, rc)) {
                     status = false;
                 }
             }
             break;
         case AST_NODE_STMT_WHILE:
-            Scope* while_scope = scope_create(string_from_format("while[%d]", i), scope);
-            if (!scope_resolve_stmt_block_identifiers(while_scope, &stmt->as.stmt_while.block, rc)) {
+            Scope* while_scope = scope_create(SCOPE_BASIC, scope);
+            if (!scope_resolve_stmt_block_symbols(while_scope, &stmt->as.stmt_while.block, rc)) {
                 status = false;
             }
             break;
         case AST_NODE_STMT_DO:
-            Scope* do_scope = scope_create(string_from_format("while[%d]", i), scope);
-            if (!scope_resolve_stmt_block_identifiers(do_scope, &stmt->as.stmt_while.block, rc)) {
+            Scope* do_scope = scope_create(SCOPE_BASIC, scope);
+            if (!scope_resolve_stmt_block_symbols(do_scope, &stmt->as.stmt_while.block, rc)) {
                 status = false;
             }
             break;
         default:
             break;
+        }
+    }
+
+    return status;
+}
+
+bool scope_resolve_types(const Scope* scope, TypeSystem* ts, ReportCollector* rc) {
+    assert(scope != NULL && ts != NULL && rc != NULL);
+
+    bool status = true;
+
+    HashmapIterator sym_it = hashmap_get_it(&scope->symbols);
+    while (hashmap_it_next(&sym_it)) {
+        Symbol* symbol = sym_it.value;
+
+        if (symbol->kind == SYMBOL_IMPORT) {
+            continue;
+        }
+
+        if (!symbol_resolve_type(symbol, ts, rc)) {
+            status = false;
+        }
+    }
+
+    for (u32 i = 0; i < scope->scopes.size; ++i) {
+        const Scope* inner_scope = vector_at(&scope->scopes, i);
+
+        if (!scope_resolve_types(inner_scope, ts, rc)) {
+            status = false;
         }
     }
 

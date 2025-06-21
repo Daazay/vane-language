@@ -5,6 +5,8 @@
 #include "vane/utils/vector.h"
 #include "vane/utils/hashmap.h"
 
+#include "vane/sema/target.h"
+
 typedef enum BuildCommand BuildCommand;
 typedef struct BuildOptions BuildOptions;
 
@@ -28,7 +30,9 @@ struct BuildOptions {
     // General options
     struct {
         String output_dir;
-        bool debug;
+
+        TargetArchitecture target_arch;
+
         bool colored_output;
     } general_options;
 

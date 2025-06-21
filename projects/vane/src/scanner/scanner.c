@@ -37,12 +37,11 @@ static inline void scanner_advance_char(Scanner* scanner) {
 }
 
 #define RET_TOKEN(KIND, VALUE) \
-scanner->first_in_line = false; \
-return (Token) { \
-    .kind = KIND, \
-    .value = VALUE, \
-    .loc = scanner->loc, \
-}
+do { \
+    Token token = token_create(KIND, VALUE, scanner->loc, scanner->first_in_line); \
+    scanner->first_in_line = false; \
+    return token; \
+} while (false)
 
 #pragma endregion
 

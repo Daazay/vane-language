@@ -26,8 +26,6 @@ void token_stream_destroy(TokenStream* ts);
 
 bool is_token_stream_end(const TokenStream* ts);
 
-bool is_token_stream_new_line(const TokenStream* ts);
-
 void token_stream_move_forward(TokenStream* ts);
 
 void token_stream_move_back(TokenStream* ts);
