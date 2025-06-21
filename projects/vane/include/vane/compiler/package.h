@@ -27,6 +27,8 @@ struct Package {
     Scope* scope;
     const Package* parent_package;
 
+    Symbol* entry_point;
+
     ReportCollector* rc;
 };
 
@@ -43,3 +45,5 @@ bool package_parse_source_files(Package* package);
 bool package_resolve_imports(Package* package, struct Compiler* compiler);
 
 bool package_resolve_symbols(Package* package);
+
+bool package_resolve_entry_point(Package* package);

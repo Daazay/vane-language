@@ -32,6 +32,8 @@ Package* package_create(const String* path, ReportCollector* rc) {
     package->scope = NULL;
     package->parent_package = NULL;
 
+    package->entry_point = NULL;
+
     package->rc = rc;
 
     return package;
@@ -133,4 +135,28 @@ bool package_resolve_symbols(Package* package) {
     }
 
     return success;
+}
+
+bool package_resolve_entry_point(Package* package) {
+    assert(package != NULL);
+
+    if (package->scope == NULL) {
+        return false;
+    }
+
+    if (package->entry_point != NULL) {
+        return true;
+    }
+
+    HashmapIterator symbol_it = hashmap_get_it(&package->scope->symbols);
+    while (hashmap_it_next(&symbol_it)) {
+        Symbol* symbol = symbol_it.value;
+
+        if (string_eq_cstr(&symbol->name, "main")) {
+            package->entry_point = symbol;
+            return true;
+        }
+    }
+
+    return false;
 }

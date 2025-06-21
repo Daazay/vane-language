@@ -32,6 +32,8 @@ Compiler compiler_create(BuildOptions* build_options) {
 
     compiler.type_system = (TypeSystem){ 0 };
 
+    compiler.entry_point = NULL;
+
     compiler.rc = report_collector_create();
 
     return compiler;
@@ -315,6 +317,51 @@ bool compiler_resolve_symbols(Compiler* compiler) {
         bool ok = package_resolve_symbols(package);
         if (!ok) {
             success = false;
+        }
+    }
+
+    return success;
+}
+
+bool compiler_resolve_entry_point(Compiler* compiler) {
+    assert(compiler != NULL);
+
+    if (compiler->entry_point != NULL) {
+        return true;
+    }
+
+    bool success = false;
+
+    HashmapIterator package_it = hashmap_get_it(&compiler->packages);
+    while (hashmap_it_next(&package_it)) {
+        Package* package = package_it.value;
+        if (package == NULL) {
+            continue;
+        }
+
+        if (package_resolve_entry_point(package)) {
+            if (compiler->entry_point == NULL) {
+                compiler->entry_point = package;
+                success = true;
+                continue;
+            }
+            success = false;
+
+            RC_TRACE(&compiler->rc, (SourceLoc){ 0 }, "Entry point in package `%.*s`",
+                (i32)package->name.len, package->name.text
+            );
+        }
+    }
+
+    if (!success) {
+        if (compiler->entry_point != NULL) {
+            RC_TRACE(&compiler->rc, (SourceLoc) { 0 }, "Entry point in package `%.*s`",
+                (i32)compiler->entry_point->name.len, compiler->entry_point->name.text
+            );
+            RC_REPORT_SEMANTIC_ERROR(&compiler->rc, (SourceLoc) { 0 }, "Multiple entry points found: function `main` is defined in multiple packages");
+        }
+        else {
+            RC_REPORT_SEMANTIC_ERROR(&compiler->rc, (SourceLoc) { 0 }, "Entry point not found.");
         }
     }
 

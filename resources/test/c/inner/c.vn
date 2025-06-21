@@ -1,3 +1,7 @@
 import "a"
 import "b"
 import "c"
+
+fun main()
+
+end

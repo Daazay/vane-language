@@ -1,1 +1,9 @@
-import "b"
+
+
+fun foo(): Int
+end
+
+
+fun main()
+
+end

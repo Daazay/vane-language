@@ -22,6 +22,9 @@ struct Compiler {
 
     TypeSystem type_system;
 
+    // package in wich entry point is defined
+    Package* entry_point;
+
     ReportCollector rc;
 };
 
@@ -44,5 +47,7 @@ bool compiler_print_ast(Compiler* compiler);
 bool compiler_show_imports(Compiler* compiler);
 
 bool compiler_resolve_symbols(Compiler* compiler);
+
+bool compiler_resolve_entry_point(Compiler* compiler);
 
 bool compiler_resolve_types(Compiler* compiler);

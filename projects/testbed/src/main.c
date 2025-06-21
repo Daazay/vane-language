@@ -96,7 +96,7 @@ static void print_symtable(const Scope* scope) {
                 symbol->name.text
             );
 
-            if (symbol->type != NULL) {
+            if (symbol->kind != SYMBOL_IMPORT && symbol->type != NULL) {
                 printf(": ");
                 print_type(symbol->type);
             }
@@ -186,6 +186,11 @@ int main(int argc, char** argv) {
                 print_symtable(package->scope);
             }
         }
+    }
+
+    // Resolve entry point
+    {
+        compiler_resolve_entry_point(&compiler);
     }
 
     // Resolve types
